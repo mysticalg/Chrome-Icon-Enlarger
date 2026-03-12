@@ -23,6 +23,7 @@
     openMode: 'current',
     autoHideTop: true,
     hoverGrowIcons: false,
+    transparentBackground: false,
     hoverGrowScale: 1.2,
     hoverGrowSpeed: 240,
     // Default on: keeps page position stable while top toolbar auto-hides.
@@ -388,6 +389,7 @@
     normalized.autoHideTop = Boolean(normalized.autoHideTop);
     normalized.hoverGrowIcons = Boolean(normalized.hoverGrowIcons);
     normalized.keepSpacerOnAutoHide = Boolean(normalized.keepSpacerOnAutoHide);
+    normalized.transparentBackground = Boolean(normalized.transparentBackground);
 
     const hoverGrowScale = Number.parseFloat(normalized.hoverGrowScale);
     normalized.hoverGrowScale = Number.isFinite(hoverGrowScale)
@@ -420,6 +422,8 @@
     root.dataset.iconOnly = String(settings.iconOnly);
     root.dataset.position = settings.position;
     root.dataset.hoverGrowIcons = String(settings.hoverGrowIcons);
+    // Expose transparent mode to CSS via dataset so chrome.storage changes hot-apply.
+    root.dataset.transparentBackground = String(settings.transparentBackground);
     root.style.setProperty('--bf-hover-grow-scale', String(settings.hoverGrowScale));
     root.style.setProperty('--bf-hover-grow-duration', `${settings.hoverGrowSpeed}ms`);
 

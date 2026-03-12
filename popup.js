@@ -4,6 +4,7 @@ const iconOnlyToggleEl = document.getElementById('iconOnlyToggle');
 const autoHideTopToggleEl = document.getElementById('autoHideTopToggle');
 const keepSpacerOnAutoHideToggleEl = document.getElementById('keepSpacerOnAutoHideToggle');
 const hoverGrowIconsToggleEl = document.getElementById('hoverGrowIconsToggle');
+const transparentBackgroundToggleEl = document.getElementById('transparentBackgroundToggle');
 const hoverGrowScaleSelectEl = document.getElementById('hoverGrowScaleSelect');
 const hoverGrowSpeedSelectEl = document.getElementById('hoverGrowSpeedSelect');
 const positionSelectEl = document.getElementById('positionSelect');
@@ -20,6 +21,7 @@ const DEFAULT_TOOLBAR_SETTINGS = {
   // Default on: keeps top spacing stable when toolbar is hidden.
   keepSpacerOnAutoHide: true,
   hoverGrowIcons: false,
+  transparentBackground: false,
   hoverGrowScale: 1.2,
   hoverGrowSpeed: 240,
 };
@@ -56,6 +58,7 @@ function applySettingsToForm(settings) {
   autoHideTopToggleEl.checked = Boolean(settings.autoHideTop);
   keepSpacerOnAutoHideToggleEl.checked = Boolean(settings.keepSpacerOnAutoHide);
   hoverGrowIconsToggleEl.checked = Boolean(settings.hoverGrowIcons);
+  transparentBackgroundToggleEl.checked = Boolean(settings.transparentBackground);
   hoverGrowScaleSelectEl.value = Number(settings.hoverGrowScale).toFixed(2);
   hoverGrowSpeedSelectEl.value = String(settings.hoverGrowSpeed);
   positionSelectEl.value = settings.position;
@@ -76,6 +79,7 @@ async function readToolbarSettings() {
   merged.autoHideTop = Boolean(merged.autoHideTop);
   merged.keepSpacerOnAutoHide = Boolean(merged.keepSpacerOnAutoHide);
   merged.hoverGrowIcons = Boolean(merged.hoverGrowIcons);
+  merged.transparentBackground = Boolean(merged.transparentBackground);
   merged.hoverGrowScale = normalizeHoverGrowScale(merged.hoverGrowScale);
   merged.hoverGrowSpeed = normalizeHoverGrowSpeed(merged.hoverGrowSpeed);
 
@@ -89,6 +93,8 @@ async function persistToolbarSettings() {
     autoHideTop: autoHideTopToggleEl.checked,
     keepSpacerOnAutoHide: keepSpacerOnAutoHideToggleEl.checked,
     hoverGrowIcons: hoverGrowIconsToggleEl.checked,
+    // Optional style mode so users can keep only icon tiles visible over page content.
+    transparentBackground: transparentBackgroundToggleEl.checked,
     hoverGrowScale: normalizeHoverGrowScale(hoverGrowScaleSelectEl.value),
     hoverGrowSpeed: normalizeHoverGrowSpeed(hoverGrowSpeedSelectEl.value),
     position: positionSelectEl.value,
@@ -125,6 +131,7 @@ async function initSettings() {
   autoHideTopToggleEl.addEventListener('change', onChange);
   keepSpacerOnAutoHideToggleEl.addEventListener('change', onChange);
   hoverGrowIconsToggleEl.addEventListener('change', onChange);
+  transparentBackgroundToggleEl.addEventListener('change', onChange);
   hoverGrowScaleSelectEl.addEventListener('change', onChange);
   hoverGrowSpeedSelectEl.addEventListener('change', onChange);
   positionSelectEl.addEventListener('change', onChange);
