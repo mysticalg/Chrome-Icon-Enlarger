@@ -25,7 +25,8 @@
     hoverGrowIcons: false,
     hoverGrowScale: 1.2,
     hoverGrowSpeed: 240,
-    keepSpacerOnAutoHide: false,
+    // Default on: keeps page position stable while top toolbar auto-hides.
+    keepSpacerOnAutoHide: true,
   };
 
   if (document.getElementById(ROOT_ID)) {

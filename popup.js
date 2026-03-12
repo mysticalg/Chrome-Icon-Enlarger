@@ -17,7 +17,8 @@ const DEFAULT_TOOLBAR_SETTINGS = {
   position: 'top',
   openMode: 'current',
   autoHideTop: true,
-  keepSpacerOnAutoHide: false,
+  // Default on: keeps top spacing stable when toolbar is hidden.
+  keepSpacerOnAutoHide: true,
   hoverGrowIcons: false,
   hoverGrowScale: 1.2,
   hoverGrowSpeed: 240,
