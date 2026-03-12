@@ -3,6 +3,7 @@ const scaleSelectEl = document.getElementById('scaleSelect');
 const iconOnlyToggleEl = document.getElementById('iconOnlyToggle');
 const autoHideTopToggleEl = document.getElementById('autoHideTopToggle');
 const keepSpacerOnAutoHideToggleEl = document.getElementById('keepSpacerOnAutoHideToggle');
+const noTopSpacerToggleEl = document.getElementById('noTopSpacerToggle');
 const hoverGrowIconsToggleEl = document.getElementById('hoverGrowIconsToggle');
 const transparentBackgroundToggleEl = document.getElementById('transparentBackgroundToggle');
 const hoverGrowScaleSelectEl = document.getElementById('hoverGrowScaleSelect');
@@ -20,6 +21,8 @@ const DEFAULT_TOOLBAR_SETTINGS = {
   autoHideTop: true,
   // Default on: keeps top spacing stable when toolbar is hidden.
   keepSpacerOnAutoHide: true,
+  // Optional mode: remove spacer completely so toolbar overlays content.
+  noTopSpacer: false,
   hoverGrowIcons: false,
   transparentBackground: false,
   hoverGrowScale: 1.2,
@@ -52,17 +55,28 @@ function normalizeHoverGrowSpeed(value) {
   return Math.min(700, Math.max(100, numeric));
 }
 
+function updateSpacerControlState() {
+  // In overlay mode, keep-spacer behavior is irrelevant, so disable that toggle.
+  const overlayModeEnabled = noTopSpacerToggleEl.checked;
+  keepSpacerOnAutoHideToggleEl.disabled = overlayModeEnabled;
+  keepSpacerOnAutoHideToggleEl.title = overlayModeEnabled
+    ? 'Disabled because No top spacer is on.'
+    : 'Keep the top spacer height while the toolbar auto-hides so page content does not move.';
+}
+
 function applySettingsToForm(settings) {
   scaleSelectEl.value = String(settings.scale);
   iconOnlyToggleEl.checked = Boolean(settings.iconOnly);
   autoHideTopToggleEl.checked = Boolean(settings.autoHideTop);
   keepSpacerOnAutoHideToggleEl.checked = Boolean(settings.keepSpacerOnAutoHide);
+  noTopSpacerToggleEl.checked = Boolean(settings.noTopSpacer);
   hoverGrowIconsToggleEl.checked = Boolean(settings.hoverGrowIcons);
   transparentBackgroundToggleEl.checked = Boolean(settings.transparentBackground);
   hoverGrowScaleSelectEl.value = Number(settings.hoverGrowScale).toFixed(2);
   hoverGrowSpeedSelectEl.value = String(settings.hoverGrowSpeed);
   positionSelectEl.value = settings.position;
   openModeSelectEl.value = settings.openMode || 'current';
+  updateSpacerControlState();
 }
 
 async function readToolbarSettings() {
@@ -78,6 +92,7 @@ async function readToolbarSettings() {
 
   merged.autoHideTop = Boolean(merged.autoHideTop);
   merged.keepSpacerOnAutoHide = Boolean(merged.keepSpacerOnAutoHide);
+  merged.noTopSpacer = Boolean(merged.noTopSpacer);
   merged.hoverGrowIcons = Boolean(merged.hoverGrowIcons);
   merged.transparentBackground = Boolean(merged.transparentBackground);
   merged.hoverGrowScale = normalizeHoverGrowScale(merged.hoverGrowScale);
@@ -92,6 +107,8 @@ async function persistToolbarSettings() {
     iconOnly: iconOnlyToggleEl.checked,
     autoHideTop: autoHideTopToggleEl.checked,
     keepSpacerOnAutoHide: keepSpacerOnAutoHideToggleEl.checked,
+    // Optional spacer mode for users who prefer overlay behavior.
+    noTopSpacer: noTopSpacerToggleEl.checked,
     hoverGrowIcons: hoverGrowIconsToggleEl.checked,
     // Optional style mode so users can keep only icon tiles visible over page content.
     transparentBackground: transparentBackgroundToggleEl.checked,
@@ -120,6 +137,7 @@ async function initSettings() {
   showStatus('Configure toolbar behavior and hover animation.');
 
   const onChange = () => {
+    updateSpacerControlState();
     persistToolbarSettings().catch((error) => {
       console.error(error);
       showSettingsStatus('Could not save settings.');
@@ -130,6 +148,7 @@ async function initSettings() {
   iconOnlyToggleEl.addEventListener('change', onChange);
   autoHideTopToggleEl.addEventListener('change', onChange);
   keepSpacerOnAutoHideToggleEl.addEventListener('change', onChange);
+  noTopSpacerToggleEl.addEventListener('change', onChange);
   hoverGrowIconsToggleEl.addEventListener('change', onChange);
   transparentBackgroundToggleEl.addEventListener('change', onChange);
   hoverGrowScaleSelectEl.addEventListener('change', onChange);

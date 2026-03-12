@@ -25,28 +25,29 @@
 
 html,
 body {
-  height: 100%;
   min-width: 360px;
 }
 
 body {
-  /* Keep extension settings panel at a predictable readable width by default. */
+  /* Keep extension settings panel at a predictable readable width and taller default height. */
   width: 380px;
   min-width: 360px;
+  min-height: 700px;
+  height: 700px;
   margin: 0;
   font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
   background: var(--bg);
   color: var(--text);
-  /* Preserve readable width and allow scrolling rather than squeezed scaling. */
-  overflow-y: auto;
-  overflow-x: auto;
+  /* Keep popup fixed-height with no internal scroll bar in normal desktop usage. */
+  overflow: hidden;
 }
 
 .app {
   width: 380px;
   min-width: 360px;
-  min-height: 100vh;
-  padding: 14px;
+  min-height: 700px;
+  height: 700px;
+  padding: 12px;
   display: flex;
   flex-direction: column;
   margin: 0 auto;
@@ -115,11 +116,16 @@ body {
   body {
     width: 100%;
     min-width: 0;
+    min-height: 0;
+    height: auto;
+    overflow: auto;
   }
 
   .app {
     width: 100%;
     min-width: 0;
+    min-height: 0;
+    height: auto;
     padding: 10px;
   }
 

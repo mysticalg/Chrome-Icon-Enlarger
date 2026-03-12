@@ -28,6 +28,8 @@
     hoverGrowSpeed: 240,
     // Default on: keeps page position stable while top toolbar auto-hides.
     keepSpacerOnAutoHide: true,
+    // Optional mode: remove top spacer completely so toolbar overlays content.
+    noTopSpacer: false,
   };
 
   if (document.getElementById(ROOT_ID)) {
@@ -120,7 +122,7 @@
     }
     clearTopHideTimer();
     root.dataset.collapsed = 'false';
-    topSpacer.dataset.collapsed = 'false';
+    topSpacer.dataset.collapsed = settings.noTopSpacer ? 'true' : 'false';
   }
 
   function hideToolbarAnimated() {
@@ -132,7 +134,11 @@
     }
     root.dataset.collapsed = 'true';
 
-    // Optional mode: keep layout spacer visible while toolbar slides away.
+    // Optional modes: keep spacer for stable layout or hide completely in overlay mode.
+    if (settings.noTopSpacer) {
+      topSpacer.dataset.collapsed = 'true';
+      return;
+    }
     topSpacer.dataset.collapsed = settings.keepSpacerOnAutoHide ? 'false' : 'true';
   }
 
@@ -389,6 +395,7 @@
     normalized.autoHideTop = Boolean(normalized.autoHideTop);
     normalized.hoverGrowIcons = Boolean(normalized.hoverGrowIcons);
     normalized.keepSpacerOnAutoHide = Boolean(normalized.keepSpacerOnAutoHide);
+    normalized.noTopSpacer = Boolean(normalized.noTopSpacer);
     normalized.transparentBackground = Boolean(normalized.transparentBackground);
 
     const hoverGrowScale = Number.parseFloat(normalized.hoverGrowScale);
@@ -427,19 +434,37 @@
     root.style.setProperty('--bf-hover-grow-scale', String(settings.hoverGrowScale));
     root.style.setProperty('--bf-hover-grow-duration', `${settings.hoverGrowSpeed}ms`);
 
+    // Apply transparent shell styles inline too, so page CSS cannot accidentally
+    // keep the default dark bar when users enable transparent mode.
+    if (settings.transparentBackground) {
+      root.style.background = 'transparent';
+      root.style.borderColor = 'transparent';
+      root.style.backdropFilter = 'none';
+      root.style.boxShadow = 'none';
+    } else {
+      root.style.removeProperty('background');
+      root.style.removeProperty('border-color');
+      root.style.removeProperty('backdrop-filter');
+      root.style.removeProperty('box-shadow');
+    }
+
+    const spacerHeight = settings.noTopSpacer ? 0 : slotPx + 10;
     if (settings.position === 'top') {
-      topSpacer.style.setProperty('--bf-spacer-height', `${slotPx + 10}px`);
+      topSpacer.style.setProperty('--bf-spacer-height', `${spacerHeight}px`);
     } else {
       topSpacer.style.setProperty('--bf-spacer-height', '0px');
     }
 
-    if (isTopAutoHideEnabled()) {
-      root.dataset.collapsed = 'true';
+    if (settings.noTopSpacer) {
+      // Overlay mode: keep spacer collapsed at all times.
+      topSpacer.dataset.collapsed = 'true';
+    } else if (isTopAutoHideEnabled()) {
       topSpacer.dataset.collapsed = settings.keepSpacerOnAutoHide ? 'false' : 'true';
     } else {
-      root.dataset.collapsed = 'false';
       topSpacer.dataset.collapsed = 'false';
     }
+
+    root.dataset.collapsed = isTopAutoHideEnabled() ? 'true' : 'false';
   }
 
   function mountToolbar() {
