@@ -117,6 +117,7 @@
     }
     clearTopHideTimer();
     root.dataset.collapsed = 'false';
+    topSpacer.dataset.collapsed = 'false';
   }
 
   function hideToolbarAnimated() {
@@ -127,6 +128,7 @@
       return;
     }
     root.dataset.collapsed = 'true';
+    topSpacer.dataset.collapsed = 'true';
   }
 
   function scheduleToolbarHide(delayMs = 700) {
@@ -417,15 +419,17 @@
     root.style.setProperty('--bf-hover-grow-duration', `${settings.hoverGrowSpeed}ms`);
 
     if (settings.position === 'top') {
-      topSpacer.style.height = `${slotPx + 10}px`;
+      topSpacer.style.setProperty('--bf-spacer-height', `${slotPx + 10}px`);
     } else {
-      topSpacer.style.height = '0px';
+      topSpacer.style.setProperty('--bf-spacer-height', '0px');
     }
 
     if (isTopAutoHideEnabled()) {
       root.dataset.collapsed = 'true';
+      topSpacer.dataset.collapsed = 'true';
     } else {
       root.dataset.collapsed = 'false';
+      topSpacer.dataset.collapsed = 'false';
     }
   }
 

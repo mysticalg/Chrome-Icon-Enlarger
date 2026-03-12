@@ -20,8 +20,17 @@
 .bf-toolbar-spacer {
   display: block;
   width: 100%;
-  height: 52px;
+  --bf-spacer-height: 52px;
+  height: var(--bf-spacer-height);
+  opacity: 1;
+  transition: height 180ms ease, opacity 180ms ease;
   pointer-events: none;
+}
+
+/* Keep spacer motion in sync with top-toolbar auto-hide animation. */
+.bf-toolbar-spacer[data-collapsed='true'] {
+  height: 0;
+  opacity: 0;
 }
 
 .bf-toolbar[data-position='top'][data-collapsed='true'] {
