@@ -521,12 +521,13 @@
     lastHiddenBookmarks = hidden;
 
     const children = [...visible.map(renderBookmark)];
+
+    // Keep the add action before overflow as requested, while both stay on the far edge.
+    children.push(addCurrentBtn);
+
     if (hidden.length > 0) {
       children.push(overflowBtn);
     }
-
-    // Keep the "add current page" action pinned at the far end of the row.
-    children.push(addCurrentBtn);
 
     list.replaceChildren(...children);
   }
