@@ -69,6 +69,7 @@
   let lastHiddenBookmarks = [];
   let settings = { ...DEFAULT_SETTINGS };
   let selectedBookmarkId = null;
+  let draggedBookmarkId = null;
 
   function closeOverflowMenu() {
     overflowMenu.hidden = true;
@@ -119,6 +120,49 @@
     } catch {
       return null;
     }
+  }
+
+  function clearReorderMarkers() {
+    root.querySelectorAll('.is-reorder-target').forEach((element) => {
+      element.classList.remove('is-reorder-target');
+    });
+  }
+
+  function bookmarkIndexById(bookmarkId) {
+    return allBookmarks.findIndex((bookmark) => bookmark.id === bookmarkId);
+  }
+
+  /**
+   * Move bookmark via background worker and then refresh launcher ordering.
+   */
+  async function reorderBookmark(dragId, targetId) {
+    if (!dragId || !targetId || dragId === targetId) {
+      return;
+    }
+
+    const fromIndex = bookmarkIndexById(dragId);
+    const targetIndex = bookmarkIndexById(targetId);
+    if (fromIndex < 0 || targetIndex < 0) {
+      return;
+    }
+
+    let toIndex = targetIndex;
+    if (fromIndex < targetIndex) {
+      // Account for source removal shift when moving forward.
+      toIndex -= 1;
+    }
+
+    const response = await chrome.runtime.sendMessage({
+      type: 'MOVE_TOOLBAR_BOOKMARK',
+      bookmarkId: dragId,
+      toIndex,
+    });
+
+    if (!response?.ok) {
+      throw new Error(response?.error || 'Could not reorder bookmark');
+    }
+
+    await refreshBookmarks();
   }
 
   function faviconUrl(pageUrl, size = 32) {
@@ -175,6 +219,7 @@
     link.title = `${label}\n${bookmark.url}`;
     link.setAttribute('aria-label', label);
     link.dataset.bookmarkId = bookmark.id;
+    link.draggable = true;
 
     const img = document.createElement('img');
     img.className = 'bf-toolbar__icon';
@@ -210,6 +255,7 @@
     const label = bookmark.title || new URL(bookmark.url).hostname;
     item.title = `${label}\n${bookmark.url}`;
     item.dataset.bookmarkId = bookmark.id;
+    item.draggable = true;
 
     const img = document.createElement('img');
     img.className = 'bf-toolbar__overflow-icon';
@@ -401,8 +447,38 @@
     }
   });
 
-  // Drag/drop URL support: drop a page URL onto the launcher to bookmark it.
+  // Drag source for bookmark reordering.
+  root.addEventListener('dragstart', (event) => {
+    const item = event.target.closest('.bf-toolbar__bookmark, .bf-toolbar__overflow-item');
+    if (!item?.dataset.bookmarkId) {
+      return;
+    }
+
+    draggedBookmarkId = item.dataset.bookmarkId;
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('application/x-big-favorites-bookmark-id', draggedBookmarkId);
+  });
+
+  root.addEventListener('dragend', () => {
+    draggedBookmarkId = null;
+    root.classList.remove('is-drop-target');
+    clearReorderMarkers();
+  });
+
   root.addEventListener('dragover', (event) => {
+    if (draggedBookmarkId) {
+      const target = event.target.closest('.bf-toolbar__bookmark, .bf-toolbar__overflow-item');
+      if (!target?.dataset.bookmarkId || target.dataset.bookmarkId === draggedBookmarkId) {
+        return;
+      }
+
+      event.preventDefault();
+      clearReorderMarkers();
+      target.classList.add('is-reorder-target');
+      event.dataTransfer.dropEffect = 'move';
+      return;
+    }
+
     const url = parseDroppedUrl(event);
     if (!url) {
       return;
@@ -416,12 +492,31 @@
   root.addEventListener('dragleave', (event) => {
     if (!root.contains(event.relatedTarget)) {
       root.classList.remove('is-drop-target');
+      clearReorderMarkers();
     }
   });
 
   root.addEventListener('drop', async (event) => {
     event.preventDefault();
     root.classList.remove('is-drop-target');
+
+    if (draggedBookmarkId) {
+      const target = event.target.closest('.bf-toolbar__bookmark, .bf-toolbar__overflow-item');
+      clearReorderMarkers();
+
+      if (!target?.dataset.bookmarkId || target.dataset.bookmarkId === draggedBookmarkId) {
+        return;
+      }
+
+      try {
+        await reorderBookmark(draggedBookmarkId, target.dataset.bookmarkId);
+      } catch (error) {
+        console.error(error);
+      }
+
+      draggedBookmarkId = null;
+      return;
+    }
 
     const url = parseDroppedUrl(event);
     if (!url) {
@@ -442,6 +537,8 @@
     } catch (error) {
       console.error(error);
     }
+
+    draggedBookmarkId = null;
   });
 
   document.addEventListener('click', (event) => {
@@ -449,6 +546,7 @@
       closeOverflowMenu();
       closeBookmarkMenu();
       root.classList.remove('is-drop-target');
+      clearReorderMarkers();
     }
   });
 
@@ -457,11 +555,15 @@
       closeOverflowMenu();
       closeBookmarkMenu();
       root.classList.remove('is-drop-target');
+      clearReorderMarkers();
     }
   });
 
   window.addEventListener('resize', () => {
     closeBookmarkMenu();
+    root.classList.remove('is-drop-target');
+    clearReorderMarkers();
+    draggedBookmarkId = null;
     layoutToolbar();
   });
 

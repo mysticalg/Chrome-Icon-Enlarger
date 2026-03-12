@@ -36,6 +36,21 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         break;
       }
 
+
+      case 'MOVE_TOOLBAR_BOOKMARK': {
+        if (!message?.bookmarkId || !Number.isInteger(message?.toIndex)) {
+          throw new Error('Missing move payload (bookmarkId/toIndex)');
+        }
+
+        await chrome.bookmarks.move(String(message.bookmarkId), {
+          parentId: TOOLBAR_FOLDER_ID,
+          index: message.toIndex,
+        });
+
+        sendResponse({ ok: true });
+        break;
+      }
+
       case 'ADD_TOOLBAR_BOOKMARK': {
         if (!message?.url) {
           throw new Error('Missing bookmark URL');
