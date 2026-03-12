@@ -17,6 +17,21 @@
   transition: transform 180ms ease, opacity 180ms ease;
 }
 
+
+/* Optional transparent shell so only controls/icons are emphasized over page content. */
+.bf-toolbar[data-transparent-background='true'] {
+  background: transparent;
+  border-color: transparent;
+  backdrop-filter: none;
+  box-shadow: none;
+}
+
+/* Keep side-rail border subtle when transparent mode is enabled. */
+.bf-toolbar[data-transparent-background='true'][data-position='left'],
+.bf-toolbar[data-transparent-background='true'][data-position='right'] {
+  border-color: transparent;
+}
+
 .bf-toolbar-spacer {
   display: block;
   width: 100%;
