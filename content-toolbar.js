@@ -59,6 +59,14 @@
   topSpacer.className = 'bf-toolbar-spacer';
   topSpacer.setAttribute('aria-hidden', 'true');
 
+  // Dedicated top-edge trigger keeps auto-hidden launcher discoverable on all sites.
+  const revealHandle = document.createElement('button');
+  revealHandle.className = 'bf-toolbar__reveal-handle';
+  revealHandle.type = 'button';
+  revealHandle.textContent = '⭐';
+  revealHandle.title = 'Show Big Favorites toolbar';
+  revealHandle.setAttribute('aria-label', 'Show Big Favorites toolbar');
+
   const list = document.createElement('nav');
   list.className = 'bf-toolbar__list';
   list.setAttribute('aria-label', 'Bookmark shortcuts');
@@ -171,6 +179,11 @@
 
   function isTopAutoHideEnabled() {
     return settings.position === 'top' && settings.autoHideTop;
+  }
+
+  function syncRevealHandleState() {
+    // Keep a tiny always-available trigger at page top whenever top auto-hide is active.
+    revealHandle.hidden = !isTopAutoHideEnabled();
   }
 
   function applyCollapseTransitionSpeed(durationMs) {
@@ -655,6 +668,7 @@
     }
 
     root.dataset.collapsed = isTopAutoHideEnabled() ? 'true' : 'false';
+    syncRevealHandleState();
   }
 
   function mountToolbar() {
@@ -664,10 +678,14 @@
     }
 
     if (settings.position === 'top') {
-      mountTarget.prepend(topSpacer);
-      topSpacer.before(root);
+      // Keep reveal handle mounted at top edge for reliable hover/click recovery.
+      mountTarget.prepend(revealHandle);
+      revealHandle.after(topSpacer);
+      topSpacer.after(root);
       return;
     }
+
+    revealHandle.remove();
 
     if (settings.position === 'bottom') {
       mountTarget.append(root);
@@ -693,14 +711,19 @@
     }
 
     if (settings.position === 'top') {
-      if (!topSpacer.isConnected) {
-        parent.prepend(topSpacer);
+      if (!revealHandle.isConnected) {
+        parent.prepend(revealHandle);
       }
-      if (root.previousElementSibling !== topSpacer) {
+      if (!topSpacer.isConnected) {
+        revealHandle.after(topSpacer);
+      }
+      if (topSpacer.nextElementSibling !== root) {
         topSpacer.after(root);
       }
       return;
     }
+
+    revealHandle.remove();
 
     if (settings.position !== 'bottom' && root !== parent.firstElementChild) {
       parent.prepend(root);
@@ -861,6 +884,15 @@
     draggedBookmarkId = null;
     root.classList.remove('is-drop-target');
     clearReorderMarkers();
+  });
+
+  revealHandle.addEventListener('mouseenter', () => {
+    showToolbarAnimated();
+  });
+
+  revealHandle.addEventListener('click', () => {
+    showToolbarAnimated();
+    scheduleToolbarHide(Math.max(settings.autoHideDelayMs, 1200));
   });
 
   root.addEventListener('mouseenter', () => {
