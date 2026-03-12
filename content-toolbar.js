@@ -5,6 +5,7 @@
  * - icon scale (2x/4x/8x)
  * - icon-only mode (force no text)
  * - toolbar position (top/bottom/left/right)
+ * - hover-grow icon scale + speed (without resizing toolbar tiles)
  */
 (() => {
   if (window.top !== window) {
@@ -22,6 +23,8 @@
     openMode: 'current',
     autoHideTop: true,
     hoverGrowIcons: false,
+    hoverGrowScale: 1.2,
+    hoverGrowSpeed: 240,
   };
 
   if (document.getElementById(ROOT_ID)) {
@@ -378,6 +381,17 @@
     }
     normalized.autoHideTop = Boolean(normalized.autoHideTop);
     normalized.hoverGrowIcons = Boolean(normalized.hoverGrowIcons);
+
+    const hoverGrowScale = Number.parseFloat(normalized.hoverGrowScale);
+    normalized.hoverGrowScale = Number.isFinite(hoverGrowScale)
+      ? Math.min(1.5, Math.max(1.05, hoverGrowScale))
+      : DEFAULT_SETTINGS.hoverGrowScale;
+
+    const hoverGrowSpeed = Number.parseInt(normalized.hoverGrowSpeed, 10);
+    normalized.hoverGrowSpeed = Number.isFinite(hoverGrowSpeed)
+      ? Math.min(700, Math.max(100, hoverGrowSpeed))
+      : DEFAULT_SETTINGS.hoverGrowSpeed;
+
     return normalized;
   }
 
@@ -399,6 +413,8 @@
     root.dataset.iconOnly = String(settings.iconOnly);
     root.dataset.position = settings.position;
     root.dataset.hoverGrowIcons = String(settings.hoverGrowIcons);
+    root.style.setProperty('--bf-hover-grow-scale', String(settings.hoverGrowScale));
+    root.style.setProperty('--bf-hover-grow-duration', `${settings.hoverGrowSpeed}ms`);
 
     if (settings.position === 'top') {
       topSpacer.style.height = `${slotPx + 10}px`;

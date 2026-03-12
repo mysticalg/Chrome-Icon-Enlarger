@@ -2,11 +2,12 @@
   "manifest_version": 3,
   "name": "Big Favorites Bar",
   "description": "Shows your bookmarks bar with 2x favicon icons and labels in a fast popup.",
-  "version": "1.2.1",
+  "version": "1.3.0",
   "permissions": [
     "bookmarks",
     "favicon",
-    "storage"
+    "storage",
+    "sidePanel"
   ],
   "background": {
     "service_worker": "background.js"
@@ -28,5 +29,8 @@
       ],
       "run_at": "document_idle"
     }
-  ]
+  ],
+  "side_panel": {
+    "default_path": "popup.html"
+  }
 }

@@ -13,8 +13,8 @@
           <span aria-hidden="true">⭐</span>
           Big Favorites
         </h1>
-        <p class="subtitle" title="This popup mirrors bookmarks from the browser's bookmarks toolbar.">
-          Bookmark launcher + toolbar settings
+        <p class="subtitle" title="Configure the in-page favorites toolbar behavior and animation.">
+          In-page toolbar settings
         </p>
       </header>
 
@@ -45,6 +45,25 @@
           <span class="field__label">Animate icon hover grow</span>
         </label>
 
+        <label class="field" title="Choose how large icons become while hovering. Toolbar tiles remain fixed size.">
+          <span class="field__label">Hover grow size</span>
+          <select id="hoverGrowScaleSelect" class="field__control" title="Set icon hover growth scale">
+            <option value="1.10">Subtle (1.10×)</option>
+            <option value="1.20">Balanced (1.20×)</option>
+            <option value="1.30">Strong (1.30×)</option>
+          </select>
+        </label>
+
+        <label class="field" title="Choose how quickly the hover animation expands and settles.">
+          <span class="field__label">Hover grow speed</span>
+          <select id="hoverGrowSpeedSelect" class="field__control" title="Set icon hover animation speed">
+            <option value="180">Fast (180ms)</option>
+            <option value="240">Balanced (240ms)</option>
+            <option value="320">Smooth (320ms)</option>
+            <option value="420">Slow pop (420ms)</option>
+          </select>
+        </label>
+
         <label class="field">
           <span class="field__label" title="Choose where the in-page launcher appears.">Launcher position</span>
           <select id="positionSelect" class="field__control" title="Set launcher position to top, bottom, left, or right">
@@ -67,11 +86,10 @@
         <p id="settingsStatus" class="settings__status" role="status">Loading settings…</p>
       </section>
 
-      <section id="status" class="status" role="status" title="Helpful loading and error messages appear here.">
-        Loading bookmarks…
+      <section id="status" class="status" role="status" title="Helpful settings and environment messages appear here.">
+        Ready.
       </section>
 
-      <ul id="bookmarkList" class="bookmark-grid" aria-label="Bookmarks toolbar items"></ul>
       <footer class="app__footer">
         <a
           class="support-link"
