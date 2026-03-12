@@ -137,7 +137,20 @@
   }
 
   async function requestBookmarks() {
-    const response = await chrome.runtime.sendMessage({ type: 'GET_TOOLBAR_BOOKMARKS' });
+    let response;
+
+    try {
+      response = await chrome.runtime.sendMessage({ type: 'GET_TOOLBAR_BOOKMARKS' });
+    } catch (error) {
+      // Provide a clearer error when the worker is unavailable so users know
+      // a quick extension reload usually restores the message channel.
+      const message = String(error?.message || error || 'Unknown runtime error');
+      if (message.includes('Receiving end does not exist')) {
+        throw new Error('Background worker unavailable. Reload the extension, then refresh this page.');
+      }
+      throw error;
+    }
+
     if (!response?.ok) {
       throw new Error(response?.error || 'Unknown bookmark loading error');
     }
