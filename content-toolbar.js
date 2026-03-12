@@ -28,28 +28,19 @@
   title.textContent = '⭐ Big Favorites';
   title.title = 'Fast bookmark launcher pinned to top of page';
 
-  const help = document.createElement('span');
-  help.className = 'bf-toolbar__help';
-  help.textContent = 'Top-of-page launcher';
-  help.title = 'Chrome cannot draw custom controls in native toolbar rows, so this is rendered inside each page.';
+  const list = document.createElement('nav');
+  list.className = 'bf-toolbar__list';
+  list.setAttribute('aria-label', 'Bookmark shortcuts');
 
   const collapseBtn = document.createElement('button');
   collapseBtn.className = 'bf-toolbar__toggle';
   collapseBtn.type = 'button';
   collapseBtn.textContent = 'Hide';
-  collapseBtn.title = 'Collapse toolbar';
+  collapseBtn.title = 'Hide bookmark icons';
+  collapseBtn.setAttribute('aria-label', 'Hide bookmark icons');
 
-  header.append(title, help, collapseBtn);
-
-  const status = document.createElement('p');
-  status.className = 'bf-toolbar__status';
-  status.textContent = 'Loading bookmarks…';
-
-  const list = document.createElement('nav');
-  list.className = 'bf-toolbar__list';
-  list.setAttribute('aria-label', 'Bookmark shortcuts');
-
-  root.append(header, status, list);
+  header.append(title);
+  root.append(header, list);
 
   /**
    * Insert the toolbar into normal page flow so it pushes content down
@@ -71,10 +62,19 @@
     mountToolbar();
   }
 
+  /**
+   * Keep the control button in the same icon row while still allowing
+   * users to un-collapse the toolbar after hiding icons.
+   */
+  function refreshToggleButton(collapsed) {
+    collapseBtn.textContent = collapsed ? 'Show' : 'Hide';
+    collapseBtn.title = collapsed ? 'Show bookmark icons' : 'Hide bookmark icons';
+    collapseBtn.setAttribute('aria-label', collapseBtn.title);
+  }
+
   collapseBtn.addEventListener('click', () => {
     const collapsed = root.classList.toggle('is-collapsed');
-    collapseBtn.textContent = collapsed ? 'Show' : 'Hide';
-    collapseBtn.title = collapsed ? 'Expand toolbar' : 'Collapse toolbar';
+    refreshToggleButton(collapsed);
   });
 
   function faviconUrl(pageUrl, size = 32) {
@@ -126,7 +126,7 @@
 
   function renderBookmark(bookmark) {
     const link = document.createElement('a');
-    link.className = 'bf-toolbar__item';
+    link.className = 'bf-toolbar__item bf-toolbar__bookmark';
     link.href = bookmark.url;
     link.target = '_blank';
     link.rel = 'noopener noreferrer';
@@ -149,6 +149,14 @@
     return link;
   }
 
+  function renderEmptyState(message) {
+    const empty = document.createElement('span');
+    empty.className = 'bf-toolbar__empty';
+    empty.textContent = message;
+    empty.title = message;
+    return empty;
+  }
+
   async function init() {
     try {
       const response = await chrome.runtime.sendMessage({ type: 'GET_TOOLBAR_BOOKMARKS' });
@@ -160,21 +168,18 @@
       const bookmarks = response.bookmarks || [];
 
       if (bookmarks.length === 0) {
-        status.textContent = 'No toolbar bookmarks found.';
+        list.replaceChildren(renderEmptyState('No toolbar bookmarks found.'), collapseBtn);
         return;
       }
 
       const maxItems = 40;
       const visible = bookmarks.slice(0, maxItems);
-      list.replaceChildren(...visible.map(renderBookmark));
 
-      status.textContent = `Showing ${visible.length} of ${bookmarks.length} toolbar bookmarks.`;
-      if (bookmarks.length > maxItems) {
-        status.textContent += ' Scroll horizontally for quick access; open popup for full list.';
-      }
+      // Keep one-row layout compact: icons + title + inline show/hide control.
+      list.replaceChildren(...visible.map(renderBookmark), collapseBtn);
     } catch (error) {
       console.error(error);
-      status.textContent = 'Could not load toolbar bookmarks in page.';
+      list.replaceChildren(renderEmptyState('Could not load toolbar bookmarks in page.'), collapseBtn);
     }
   }
 
