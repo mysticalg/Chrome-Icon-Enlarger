@@ -1,89 +1,115 @@
 .bf-toolbar {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 2147483646;
+  --bf-icon-size: 32px;
+  --bf-slot-size: 42px;
+  position: relative;
+  z-index: 1;
+  width: 100%;
   background: rgba(15, 23, 42, 0.95);
   color: #f8fafc;
   border-bottom: 1px solid rgba(148, 163, 184, 0.35);
   backdrop-filter: blur(8px);
   font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
-  padding: 6px 10px 8px;
+  padding: 4px 10px;
 }
 
-.bf-toolbar__header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+.bf-toolbar[data-position='bottom'] {
+  border-top: 1px solid rgba(148, 163, 184, 0.35);
+  border-bottom: none;
 }
 
-.bf-toolbar__title {
-  font-size: 13px;
+/* Side mode floats like a launcher rail on left/right edges. */
+.bf-toolbar[data-position='left'],
+.bf-toolbar[data-position='right'] {
+  position: fixed;
+  top: 18%;
+  width: min-content;
+  max-height: 72vh;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 0 12px 12px 0;
 }
 
-.bf-toolbar__help,
-.bf-toolbar__status {
-  color: #cbd5e1;
-  font-size: 12px;
+.bf-toolbar[data-position='left'] { left: 0; }
+
+.bf-toolbar[data-position='right'] {
+  right: 0;
+  border-radius: 12px 0 0 12px;
 }
 
-.bf-toolbar__toggle {
-  margin-left: auto;
-  border: 1px solid rgba(148, 163, 184, 0.5);
-  background: rgba(30, 41, 59, 0.9);
-  color: #f8fafc;
-  border-radius: 7px;
-  font-size: 12px;
-  line-height: 1;
-  padding: 6px 8px;
-  cursor: pointer;
-}
-
-.bf-toolbar__toggle:hover {
-  background: rgba(51, 65, 85, 0.95);
-}
-
-.bf-toolbar__status {
-  margin: 5px 0 6px;
-}
 
 .bf-toolbar__list {
   display: flex;
-  align-items: stretch;
-  gap: 8px;
-  overflow-x: auto;
-  padding-bottom: 2px;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  padding: 1px 0 2px;
+  flex-wrap: nowrap;
 }
 
-.bf-toolbar__item {
+.bf-toolbar[data-position='left'] .bf-toolbar__list,
+.bf-toolbar[data-position='right'] .bf-toolbar__list {
+  flex-direction: column;
+  height: min(64vh, 460px);
+}
+
+.bf-toolbar__item,
+.bf-toolbar__overflow-btn {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  min-width: 0;
-  max-width: 240px;
-  text-decoration: none;
+  justify-content: center;
+  flex: 0 0 var(--bf-slot-size);
+  flex: 0 0 var(--bf-slot-size);
+  width: var(--bf-slot-size);
+  min-width: var(--bf-slot-size);
+  max-width: var(--bf-slot-size);
+  height: var(--bf-slot-size);
+  min-height: var(--bf-slot-size);
+  border: none;
+  border-radius: 8px;
+  padding: 0;
+  background: transparent;
   color: inherit;
-  border: 1px solid rgba(148, 163, 184, 0.45);
-  border-radius: 9px;
-  padding: 6px 8px;
-  background: rgba(30, 41, 59, 0.95);
+  font-size: 12px;
+  line-height: 1;
 }
 
-.bf-toolbar__item:hover {
-  background: rgba(51, 65, 85, 0.98);
+.bf-toolbar[data-icon-only='false'] .bf-toolbar__item {
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 0 8px;
+}
+
+.bf-toolbar__item { text-decoration: none; }
+
+.bf-toolbar__item:hover,
+.bf-toolbar__overflow-btn:hover,
+.bf-toolbar__overflow-item:hover {
+  background: rgba(51, 65, 85, 0.55);
+}
+
+.bf-toolbar__item:focus-visible,
+.bf-toolbar__overflow-btn:focus-visible,
+.bf-toolbar__overflow-item:focus-visible {
+  outline: 2px solid rgba(147, 197, 253, 0.95);
+  outline-offset: 1px;
+}
+
+.bf-toolbar__overflow-btn {
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
 }
 
 .bf-toolbar__icon {
-  width: 24px;
-  height: 24px;
+  width: var(--bf-icon-size);
+  height: var(--bf-icon-size);
   border-radius: 6px;
-  flex: 0 0 24px;
+  flex: 0 0 var(--bf-icon-size);
   object-fit: contain;
   background: rgba(100, 116, 139, 0.2);
 }
 
 .bf-toolbar__text {
+  display: none;
   font-size: 12px;
   line-height: 1.2;
   white-space: nowrap;
@@ -91,7 +117,151 @@
   text-overflow: ellipsis;
 }
 
-.bf-toolbar.is-collapsed .bf-toolbar__status,
-.bf-toolbar.is-collapsed .bf-toolbar__list {
+.bf-toolbar[data-icon-only='false'] .bf-toolbar__text {
+  display: inline;
+}
+
+.bf-toolbar__empty {
+  font-size: 12px;
+  color: #cbd5e1;
+  align-self: center;
+  white-space: nowrap;
+}
+
+.bf-toolbar__overflow-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 8px;
+  z-index: 2147483647;
+  min-width: max-content;
+  max-width: min(420px, calc(100vw - 16px));
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 6px;
+  padding: 8px 6px;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  background: rgba(15, 23, 42, 0.985);
+  box-shadow: 0 10px 24px rgba(2, 6, 23, 0.55);
+  overflow: hidden;
+}
+
+/* Icon-only overflow panel remains compact and removes internal scrollbars. */
+.bf-toolbar[data-icon-only='true'] .bf-toolbar__overflow-menu {
+  width: auto;
+  min-width: calc(var(--bf-slot-size) + 12px);
+  max-width: min(420px, calc(100vw - 16px));
+}
+
+/* Keep menu attached to launcher edge while preventing top-row overlap. */
+.bf-toolbar[data-position='left'] .bf-toolbar__overflow-menu {
+  left: calc(100% + 6px);
+  right: auto;
+  top: 0;
+}
+
+.bf-toolbar[data-position='right'] .bf-toolbar__overflow-menu {
+  right: calc(100% + 6px);
+  top: 0;
+}
+
+.bf-toolbar[data-position='bottom'] .bf-toolbar__overflow-menu {
+  top: auto;
+  bottom: calc(100% + 4px);
+}
+
+.bf-toolbar__overflow-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: inherit;
+  text-decoration: none;
+  font-size: 12px;
+  border-radius: 8px;
+  padding: 7px 8px;
+}
+
+/* When icon-only is enabled, overflow items match main-row tile dimensions exactly. */
+.bf-toolbar[data-icon-only='true'] .bf-toolbar__overflow-item {
+  justify-content: center;
+  flex: 0 0 var(--bf-slot-size);
+  width: var(--bf-slot-size);
+  min-width: var(--bf-slot-size);
+  max-width: var(--bf-slot-size);
+  height: var(--bf-slot-size);
+  min-height: var(--bf-slot-size);
+  padding: 0;
+  gap: 0;
+}
+
+.bf-toolbar__overflow-icon {
+  width: var(--bf-icon-size);
+  height: var(--bf-icon-size);
+  border-radius: 6px;
+  flex: 0 0 var(--bf-icon-size);
+  object-fit: contain;
+  background: rgba(100, 116, 139, 0.2);
+}
+
+.bf-toolbar[data-icon-only='true'] .bf-toolbar__overflow-text {
   display: none;
+}
+
+.bf-toolbar__overflow-text {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* Subtle drop highlight when users drag a URL over the launcher. */
+.bf-toolbar.is-drop-target {
+  box-shadow: inset 0 0 0 2px rgba(96, 165, 250, 0.95);
+}
+
+/* Small custom context menu for right-click remove action. */
+.bf-toolbar__bookmark-menu {
+  position: fixed;
+  z-index: 2147483647;
+  background: rgba(15, 23, 42, 0.98);
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  border-radius: 8px;
+  padding: 4px;
+  box-shadow: 0 10px 24px rgba(2, 6, 23, 0.55);
+}
+
+.bf-toolbar__menu-action {
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-size: 12px;
+  border-radius: 6px;
+  padding: 6px 8px;
+  cursor: pointer;
+}
+
+.bf-toolbar__menu-action:hover {
+  background: rgba(51, 65, 85, 0.65);
+}
+
+.bf-toolbar__menu-action:focus-visible {
+  outline: 2px solid rgba(147, 197, 253, 0.95);
+  outline-offset: 1px;
+}
+
+
+/* Reorder feedback while dragging bookmarks inside the launcher. */
+.bf-toolbar__bookmark,
+.bf-toolbar__overflow-item {
+  cursor: grab;
+}
+
+.bf-toolbar__bookmark:active,
+.bf-toolbar__overflow-item:active {
+  cursor: grabbing;
+}
+
+.bf-toolbar__bookmark.is-reorder-target,
+.bf-toolbar__overflow-item.is-reorder-target {
+  box-shadow: inset 0 0 0 2px rgba(147, 197, 253, 0.95);
 }

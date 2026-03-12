@@ -1,0 +1,51 @@
+name: Package extension for distribution
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Read extension version from manifest
+        id: meta
+        run: |
+          VERSION=$(python - <<'PY'
+          import json
+          with open('manifest.json', 'r', encoding='utf-8') as f:
+              manifest = json.load(f)
+          print(manifest['version'])
+          PY
+          )
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Build clean extension package directory
+        run: |
+          mkdir -p dist/extension
+
+          # Keep package contents Web Store-friendly: extension runtime files only.
+          rsync -av ./ dist/extension/ \
+            --exclude '.git/' \
+            --exclude '.github/' \
+            --exclude 'dist/' \
+            --exclude '*.md' \
+            --exclude '.gitkeep'
+
+      - name: Create ZIP archive
+        run: |
+          cd dist/extension
+          zip -r "../big-favorites-${{ steps.meta.outputs.version }}.zip" .
+
+      - name: Upload ZIP artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: big-favorites-${{ steps.meta.outputs.version }}
+          path: dist/big-favorites-${{ steps.meta.outputs.version }}.zip
+          if-no-files-found: error

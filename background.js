@@ -1,30 +1,85 @@
 /**
- * Background service worker for bookmark data access.
+ * Background service worker for bookmark data access/mutations.
  *
- * Content scripts do not have access to chrome.bookmarks directly,
- * so we fetch toolbar bookmarks here and return them via messaging.
+ * Content scripts cannot call chrome.bookmarks directly, so all bookmark
+ * reads/writes are brokered through message handlers in this worker.
  */
+const TOOLBAR_FOLDER_ID = '1';
+
+async function getToolbarBookmarks() {
+  const items = await chrome.bookmarks.getChildren(TOOLBAR_FOLDER_ID);
+  return items
+    .filter((item) => Boolean(item.url))
+    .map((item) => ({
+      id: item.id,
+      title: item.title || '',
+      url: item.url,
+    }));
+}
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (message?.type !== 'GET_TOOLBAR_BOOKMARKS') {
-    return;
-  }
+  (async () => {
+    switch (message?.type) {
+      case 'GET_TOOLBAR_BOOKMARKS': {
+        const bookmarks = await getToolbarBookmarks();
+        sendResponse({ ok: true, bookmarks });
+        break;
+      }
 
-  chrome.bookmarks.getChildren('1')
-    .then((items) => {
-      const bookmarks = items
-        .filter((item) => Boolean(item.url))
-        .map((item) => ({
-          id: item.id,
-          title: item.title || '',
-          url: item.url,
-        }));
+      case 'REMOVE_TOOLBAR_BOOKMARK': {
+        if (!message?.bookmarkId) {
+          throw new Error('Missing bookmarkId');
+        }
 
-      sendResponse({ ok: true, bookmarks });
-    })
-    .catch((error) => {
-      console.error('Failed to load toolbar bookmarks:', error);
-      sendResponse({ ok: false, error: String(error) });
-    });
+        await chrome.bookmarks.remove(String(message.bookmarkId));
+        sendResponse({ ok: true });
+        break;
+      }
+
+
+      case 'MOVE_TOOLBAR_BOOKMARK': {
+        if (!message?.bookmarkId || !Number.isInteger(message?.toIndex)) {
+          throw new Error('Missing move payload (bookmarkId/toIndex)');
+        }
+
+        await chrome.bookmarks.move(String(message.bookmarkId), {
+          parentId: TOOLBAR_FOLDER_ID,
+          index: message.toIndex,
+        });
+
+        sendResponse({ ok: true });
+        break;
+      }
+
+      case 'ADD_TOOLBAR_BOOKMARK': {
+        if (!message?.url) {
+          throw new Error('Missing bookmark URL');
+        }
+
+        const created = await chrome.bookmarks.create({
+          parentId: TOOLBAR_FOLDER_ID,
+          title: message.title || new URL(message.url).hostname,
+          url: message.url,
+        });
+
+        sendResponse({
+          ok: true,
+          bookmark: {
+            id: created.id,
+            title: created.title || '',
+            url: created.url,
+          },
+        });
+        break;
+      }
+
+      default:
+        break;
+    }
+  })().catch((error) => {
+    console.error('Bookmark worker message failed:', error);
+    sendResponse({ ok: false, error: String(error) });
+  });
 
   // Keep message channel open for async response.
   return true;

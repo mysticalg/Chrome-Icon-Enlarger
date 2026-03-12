@@ -1,8 +1,10 @@
 /**
  * Lightweight in-page favorites toolbar.
  *
- * This appears at the top of web pages, which makes it effectively sit
- * right under Chrome's native toolbar/bookmarks bar area.
+ * Settings are read from chrome.storage.sync so users can control:
+ * - icon scale (2x/4x/8x)
+ * - icon-only mode (force no text)
+ * - toolbar position (top/bottom/left/right)
  */
 (() => {
   if (window.top !== window) {
@@ -10,6 +12,15 @@
   }
 
   const ROOT_ID = 'big-favorites-inline-toolbar';
+  const TOOLBAR_SETTINGS_KEY = 'toolbarSettings';
+  const BASE_ICON = 16;
+  const SLOT_GAP = 6;
+  const DEFAULT_SETTINGS = {
+    scale: '2',
+    iconOnly: true,
+    position: 'top',
+    openMode: 'current',
+  };
 
   if (document.getElementById(ROOT_ID)) {
     return;
@@ -20,43 +31,140 @@
   root.className = 'bf-toolbar';
   root.setAttribute('aria-label', 'Big Favorites in-page toolbar');
 
-  const header = document.createElement('div');
-  header.className = 'bf-toolbar__header';
-
-  const title = document.createElement('strong');
-  title.className = 'bf-toolbar__title';
-  title.textContent = '⭐ Big Favorites';
-  title.title = 'Fast bookmark launcher pinned to top of page';
-
-  const help = document.createElement('span');
-  help.className = 'bf-toolbar__help';
-  help.textContent = 'Top-of-page launcher';
-  help.title = 'Chrome cannot draw custom controls in native toolbar rows, so this is rendered inside each page.';
-
-  const collapseBtn = document.createElement('button');
-  collapseBtn.className = 'bf-toolbar__toggle';
-  collapseBtn.type = 'button';
-  collapseBtn.textContent = 'Hide';
-  collapseBtn.title = 'Collapse toolbar';
-
-  header.append(title, help, collapseBtn);
-
-  const status = document.createElement('p');
-  status.className = 'bf-toolbar__status';
-  status.textContent = 'Loading bookmarks…';
-
   const list = document.createElement('nav');
   list.className = 'bf-toolbar__list';
   list.setAttribute('aria-label', 'Bookmark shortcuts');
 
-  root.append(header, status, list);
-  document.documentElement.append(root);
+  const overflowBtn = document.createElement('button');
+  overflowBtn.className = 'bf-toolbar__overflow-btn';
+  overflowBtn.type = 'button';
+  overflowBtn.textContent = '»';
+  overflowBtn.title = 'Show hidden bookmarks';
+  overflowBtn.setAttribute('aria-label', 'Show hidden bookmarks in dropdown');
 
-  collapseBtn.addEventListener('click', () => {
-    const collapsed = root.classList.toggle('is-collapsed');
-    collapseBtn.textContent = collapsed ? 'Show' : 'Hide';
-    collapseBtn.title = collapsed ? 'Expand toolbar' : 'Collapse toolbar';
-  });
+  const overflowMenu = document.createElement('div');
+  overflowMenu.className = 'bf-toolbar__overflow-menu';
+  overflowMenu.hidden = true;
+  overflowMenu.setAttribute('role', 'menu');
+  overflowMenu.setAttribute('aria-label', 'Hidden bookmarks');
+
+  const bookmarkMenu = document.createElement('div');
+  bookmarkMenu.className = 'bf-toolbar__bookmark-menu';
+  bookmarkMenu.hidden = true;
+  bookmarkMenu.setAttribute('role', 'menu');
+  bookmarkMenu.setAttribute('aria-label', 'Bookmark actions');
+
+  const removeActionBtn = document.createElement('button');
+  removeActionBtn.className = 'bf-toolbar__menu-action';
+  removeActionBtn.type = 'button';
+  removeActionBtn.textContent = '🗑 Remove bookmark';
+  removeActionBtn.title = 'Remove this bookmark from the bookmarks toolbar';
+  removeActionBtn.setAttribute('aria-label', 'Remove bookmark');
+
+  bookmarkMenu.append(removeActionBtn);
+
+  // Intentionally render icon rail only (no title row) for a compact launcher.
+  root.append(list, overflowMenu, bookmarkMenu);
+
+  let allBookmarks = [];
+  let lastHiddenBookmarks = [];
+  let settings = { ...DEFAULT_SETTINGS };
+  let selectedBookmarkId = null;
+  let draggedBookmarkId = null;
+
+  function closeOverflowMenu() {
+    overflowMenu.hidden = true;
+    overflowBtn.setAttribute('aria-expanded', 'false');
+  }
+
+  function closeBookmarkMenu() {
+    bookmarkMenu.hidden = true;
+    selectedBookmarkId = null;
+  }
+
+  async function requestBookmarks() {
+    const response = await chrome.runtime.sendMessage({ type: 'GET_TOOLBAR_BOOKMARKS' });
+    if (!response?.ok) {
+      throw new Error(response?.error || 'Unknown bookmark loading error');
+    }
+    return response.bookmarks || [];
+  }
+
+  async function refreshBookmarks() {
+    const bookmarks = await requestBookmarks();
+    // Show the full bookmarks toolbar list; responsive layout still decides
+    // what fits inline and puts remaining items behind the overflow button.
+    allBookmarks = bookmarks;
+    layoutToolbar();
+  }
+
+  function parseDroppedUrl(event) {
+    const uriList = event.dataTransfer?.getData('text/uri-list') || '';
+    const firstUri = uriList
+      .split('\n')
+      .map((line) => line.trim())
+      .find((line) => line && !line.startsWith('#'));
+
+    const plain = event.dataTransfer?.getData('text/plain')?.trim() || '';
+    const candidate = firstUri || plain;
+
+    if (!candidate) {
+      return null;
+    }
+
+    try {
+      const url = new URL(candidate);
+      if (!['http:', 'https:'].includes(url.protocol)) {
+        return null;
+      }
+      return url.toString();
+    } catch {
+      return null;
+    }
+  }
+
+  function clearReorderMarkers() {
+    root.querySelectorAll('.is-reorder-target').forEach((element) => {
+      element.classList.remove('is-reorder-target');
+    });
+  }
+
+  function bookmarkIndexById(bookmarkId) {
+    return allBookmarks.findIndex((bookmark) => bookmark.id === bookmarkId);
+  }
+
+  /**
+   * Move bookmark via background worker and then refresh launcher ordering.
+   */
+  async function reorderBookmark(dragId, targetId) {
+    if (!dragId || !targetId || dragId === targetId) {
+      return;
+    }
+
+    const fromIndex = bookmarkIndexById(dragId);
+    const targetIndex = bookmarkIndexById(targetId);
+    if (fromIndex < 0 || targetIndex < 0) {
+      return;
+    }
+
+    let toIndex = targetIndex;
+    if (fromIndex < targetIndex) {
+      // Account for source removal shift when moving forward.
+      toIndex -= 1;
+    }
+
+    const response = await chrome.runtime.sendMessage({
+      type: 'MOVE_TOOLBAR_BOOKMARK',
+      bookmarkId: dragId,
+      toIndex,
+    });
+
+    if (!response?.ok) {
+      throw new Error(response?.error || 'Could not reorder bookmark');
+    }
+
+    await refreshBookmarks();
+  }
 
   function faviconUrl(pageUrl, size = 32) {
     const favicon = new URL(chrome.runtime.getURL('/_favicon/'));
@@ -76,60 +184,435 @@
     return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
   }
 
+  function secondaryFaviconUrl(pageUrl, size = 64) {
+    const favicon = new URL('https://www.google.com/s2/favicons');
+    favicon.searchParams.set('domain_url', pageUrl);
+    favicon.searchParams.set('sz', String(size));
+    return favicon.toString();
+  }
+
+  /**
+   * Apply user-configured open behavior to launcher links.
+   * Default is current tab to match requested UX.
+   */
+  function applyOpenMode(link) {
+    if (settings.openMode === 'new') {
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      return;
+    }
+
+    link.removeAttribute('target');
+    link.removeAttribute('rel');
+  }
+
+  function applyFaviconWithFallback(img, pageUrl) {
+    const candidates = [
+      faviconUrl(pageUrl, 64),
+      secondaryFaviconUrl(pageUrl, 64),
+      fallbackIconDataUrl(),
+    ];
+
+    let index = 0;
+    img.src = candidates[index];
+
+    img.addEventListener('error', () => {
+      index += 1;
+      if (index < candidates.length) {
+        img.src = candidates[index];
+      }
+    });
+  }
+
   function renderBookmark(bookmark) {
     const link = document.createElement('a');
-    link.className = 'bf-toolbar__item';
+    link.className = 'bf-toolbar__item bf-toolbar__bookmark';
     link.href = bookmark.url;
-    link.target = '_blank';
-    link.rel = 'noopener noreferrer';
+    applyOpenMode(link);
 
     const label = bookmark.title || new URL(bookmark.url).hostname;
     link.title = `${label}\n${bookmark.url}`;
+    link.setAttribute('aria-label', label);
+    link.dataset.bookmarkId = bookmark.id;
+    link.draggable = true;
 
     const img = document.createElement('img');
     img.className = 'bf-toolbar__icon';
     img.alt = '';
     img.loading = 'lazy';
     img.decoding = 'async';
-    img.src = faviconUrl(bookmark.url, 32);
-    img.addEventListener('error', () => {
-      img.src = fallbackIconDataUrl();
-    }, { once: true });
+    applyFaviconWithFallback(img, bookmark.url);
 
     const text = document.createElement('span');
     text.className = 'bf-toolbar__text';
     text.textContent = label;
 
+    // Keep icon compact while preserving optional label mode.
     link.append(img, text);
     return link;
   }
 
-  async function init() {
+  function renderEmptyState(message) {
+    const empty = document.createElement('span');
+    empty.className = 'bf-toolbar__empty';
+    empty.textContent = message;
+    empty.title = message;
+    return empty;
+  }
+
+  function renderOverflowItem(bookmark) {
+    const item = document.createElement('a');
+    item.className = 'bf-toolbar__overflow-item';
+    item.href = bookmark.url;
+    applyOpenMode(item);
+
+    const label = bookmark.title || new URL(bookmark.url).hostname;
+    item.title = `${label}\n${bookmark.url}`;
+    item.dataset.bookmarkId = bookmark.id;
+    item.draggable = true;
+
+    const img = document.createElement('img');
+    img.className = 'bf-toolbar__overflow-icon';
+    img.alt = '';
+    img.loading = 'lazy';
+    img.decoding = 'async';
+    applyFaviconWithFallback(img, bookmark.url);
+
+    const text = document.createElement('span');
+    text.className = 'bf-toolbar__overflow-text';
+    text.textContent = label;
+
+    // Respect icon-only mode in overflow panel too (no text when disabled in settings).
+    if (settings.iconOnly) {
+      item.append(img);
+    } else {
+      item.append(img, text);
+    }
+
+    return item;
+  }
+
+  function populateOverflowMenu(hiddenBookmarks) {
+    overflowMenu.replaceChildren(...hiddenBookmarks.map(renderOverflowItem));
+  }
+
+  function normalizeSettings(raw) {
+    const normalized = { ...DEFAULT_SETTINGS, ...(raw || {}) };
+    if (!['2', '4', '8'].includes(String(normalized.scale))) {
+      normalized.scale = DEFAULT_SETTINGS.scale;
+    }
+    normalized.scale = String(normalized.scale);
+    normalized.iconOnly = Boolean(normalized.iconOnly);
+    if (!['top', 'bottom', 'left', 'right'].includes(normalized.position)) {
+      normalized.position = DEFAULT_SETTINGS.position;
+    }
+    if (!['current', 'new'].includes(normalized.openMode)) {
+      normalized.openMode = DEFAULT_SETTINGS.openMode;
+    }
+    return normalized;
+  }
+
+  async function readSettings() {
     try {
-      const response = await chrome.runtime.sendMessage({ type: 'GET_TOOLBAR_BOOKMARKS' });
+      const storage = await chrome.storage.sync.get(TOOLBAR_SETTINGS_KEY);
+      return normalizeSettings(storage?.[TOOLBAR_SETTINGS_KEY]);
+    } catch {
+      return { ...DEFAULT_SETTINGS };
+    }
+  }
+
+  function applySettingsToLayout() {
+    const iconPx = BASE_ICON * Number(settings.scale);
+    const slotPx = settings.iconOnly ? iconPx + 10 : Math.max(iconPx + 76, 120);
+
+    root.style.setProperty('--bf-icon-size', `${iconPx}px`);
+    root.style.setProperty('--bf-slot-size', `${slotPx}px`);
+    root.dataset.iconOnly = String(settings.iconOnly);
+    root.dataset.position = settings.position;
+  }
+
+  function mountToolbar() {
+    const mountTarget = document.body || document.documentElement;
+    if (!mountTarget) {
+      return;
+    }
+
+    if (settings.position === 'bottom') {
+      mountTarget.append(root);
+    } else {
+      mountTarget.prepend(root);
+    }
+  }
+
+  function ensureMountedAtPosition() {
+    if (!root.isConnected) {
+      mountToolbar();
+      return;
+    }
+
+    const parent = document.body || document.documentElement;
+    if (!parent) {
+      return;
+    }
+
+    if (settings.position === 'bottom' && root !== parent.lastElementChild) {
+      parent.append(root);
+    }
+
+    if (settings.position !== 'bottom' && root !== parent.firstElementChild) {
+      parent.prepend(root);
+    }
+  }
+
+  function slotSize() {
+    return Number.parseFloat(getComputedStyle(root).getPropertyValue('--bf-slot-size')) || 34;
+  }
+
+  function maxSlotsForWidth(width) {
+    const tile = slotSize();
+    return Math.max(0, Math.floor((width + SLOT_GAP) / (tile + SLOT_GAP)));
+  }
+
+  function maxSlotsForHeight(height) {
+    const tile = slotSize();
+    return Math.max(0, Math.floor((height + SLOT_GAP) / (tile + SLOT_GAP)));
+  }
+
+  function layoutToolbar() {
+    closeOverflowMenu();
+
+    if (allBookmarks.length === 0) {
+      list.replaceChildren(renderEmptyState('No toolbar bookmarks found.'));
+      return;
+    }
+
+    const vertical = settings.position === 'left' || settings.position === 'right';
+    const totalSlots = vertical
+      ? maxSlotsForHeight(list.clientHeight)
+      : maxSlotsForWidth(list.clientWidth);
+
+    let visibleCount = Math.min(allBookmarks.length, Math.max(0, totalSlots));
+    if (visibleCount < allBookmarks.length) {
+      // Reserve one slot for the overflow menu trigger when needed.
+      visibleCount = Math.min(allBookmarks.length, Math.max(0, totalSlots - 1));
+    }
+
+    const visible = allBookmarks.slice(0, visibleCount);
+    const hidden = allBookmarks.slice(visibleCount);
+    lastHiddenBookmarks = hidden;
+
+    const children = [...visible.map(renderBookmark)];
+    if (hidden.length > 0) {
+      children.push(overflowBtn);
+    }
+
+    list.replaceChildren(...children);
+  }
+
+
+  overflowBtn.addEventListener('click', () => {
+    if (overflowMenu.hidden) {
+      populateOverflowMenu(lastHiddenBookmarks);
+      overflowMenu.hidden = false;
+      overflowBtn.setAttribute('aria-expanded', 'true');
+    } else {
+      closeOverflowMenu();
+    }
+  });
+
+  /**
+   * Right-click bookmark tile => lightweight action menu with Remove action.
+   */
+  root.addEventListener('contextmenu', (event) => {
+    const item = event.target.closest('.bf-toolbar__bookmark, .bf-toolbar__overflow-item');
+    if (!item) {
+      return;
+    }
+
+    event.preventDefault();
+    selectedBookmarkId = item.dataset.bookmarkId || null;
+    if (!selectedBookmarkId) {
+      return;
+    }
+
+    bookmarkMenu.style.left = `${event.clientX}px`;
+    bookmarkMenu.style.top = `${event.clientY}px`;
+    bookmarkMenu.hidden = false;
+  });
+
+  removeActionBtn.addEventListener('click', async () => {
+    if (!selectedBookmarkId) {
+      closeBookmarkMenu();
+      return;
+    }
+
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: 'REMOVE_TOOLBAR_BOOKMARK',
+        bookmarkId: selectedBookmarkId,
+      });
 
       if (!response?.ok) {
-        throw new Error(response?.error || 'Unknown bookmark loading error');
+        throw new Error(response?.error || 'Could not remove bookmark');
       }
 
-      const bookmarks = response.bookmarks || [];
+      closeBookmarkMenu();
+      await refreshBookmarks();
+    } catch (error) {
+      console.error(error);
+      closeBookmarkMenu();
+    }
+  });
 
-      if (bookmarks.length === 0) {
-        status.textContent = 'No toolbar bookmarks found.';
+  // Drag source for bookmark reordering.
+  root.addEventListener('dragstart', (event) => {
+    const item = event.target.closest('.bf-toolbar__bookmark, .bf-toolbar__overflow-item');
+    if (!item?.dataset.bookmarkId) {
+      return;
+    }
+
+    draggedBookmarkId = item.dataset.bookmarkId;
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('application/x-big-favorites-bookmark-id', draggedBookmarkId);
+  });
+
+  root.addEventListener('dragend', () => {
+    draggedBookmarkId = null;
+    root.classList.remove('is-drop-target');
+    clearReorderMarkers();
+  });
+
+  root.addEventListener('dragover', (event) => {
+    if (draggedBookmarkId) {
+      const target = event.target.closest('.bf-toolbar__bookmark, .bf-toolbar__overflow-item');
+      if (!target?.dataset.bookmarkId || target.dataset.bookmarkId === draggedBookmarkId) {
         return;
       }
 
-      const maxItems = 40;
-      const visible = bookmarks.slice(0, maxItems);
-      list.replaceChildren(...visible.map(renderBookmark));
+      event.preventDefault();
+      clearReorderMarkers();
+      target.classList.add('is-reorder-target');
+      event.dataTransfer.dropEffect = 'move';
+      return;
+    }
 
-      status.textContent = `Showing ${visible.length} of ${bookmarks.length} toolbar bookmarks.`;
-      if (bookmarks.length > maxItems) {
-        status.textContent += ' Scroll horizontally for quick access; open popup for full list.';
+    const url = parseDroppedUrl(event);
+    if (!url) {
+      return;
+    }
+
+    event.preventDefault();
+    root.classList.add('is-drop-target');
+    event.dataTransfer.dropEffect = 'copy';
+  });
+
+  root.addEventListener('dragleave', (event) => {
+    if (!root.contains(event.relatedTarget)) {
+      root.classList.remove('is-drop-target');
+      clearReorderMarkers();
+    }
+  });
+
+  root.addEventListener('drop', async (event) => {
+    event.preventDefault();
+    root.classList.remove('is-drop-target');
+
+    if (draggedBookmarkId) {
+      const target = event.target.closest('.bf-toolbar__bookmark, .bf-toolbar__overflow-item');
+      clearReorderMarkers();
+
+      if (!target?.dataset.bookmarkId || target.dataset.bookmarkId === draggedBookmarkId) {
+        return;
       }
+
+      try {
+        await reorderBookmark(draggedBookmarkId, target.dataset.bookmarkId);
+      } catch (error) {
+        console.error(error);
+      }
+
+      draggedBookmarkId = null;
+      return;
+    }
+
+    const url = parseDroppedUrl(event);
+    if (!url) {
+      return;
+    }
+
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: 'ADD_TOOLBAR_BOOKMARK',
+        url,
+      });
+
+      if (!response?.ok) {
+        throw new Error(response?.error || 'Could not add bookmark');
+      }
+
+      await refreshBookmarks();
     } catch (error) {
       console.error(error);
-      status.textContent = 'Could not load toolbar bookmarks in page.';
+    }
+
+    draggedBookmarkId = null;
+  });
+
+  document.addEventListener('click', (event) => {
+    if (!root.contains(event.target)) {
+      closeOverflowMenu();
+      closeBookmarkMenu();
+      root.classList.remove('is-drop-target');
+      clearReorderMarkers();
+    }
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      closeOverflowMenu();
+      closeBookmarkMenu();
+      root.classList.remove('is-drop-target');
+      clearReorderMarkers();
+    }
+  });
+
+  window.addEventListener('resize', () => {
+    closeBookmarkMenu();
+    root.classList.remove('is-drop-target');
+    clearReorderMarkers();
+    draggedBookmarkId = null;
+    layoutToolbar();
+  });
+
+  if (chrome.storage?.onChanged) {
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (area !== 'sync' || !changes[TOOLBAR_SETTINGS_KEY]) {
+        return;
+      }
+
+      settings = normalizeSettings(changes[TOOLBAR_SETTINGS_KEY].newValue);
+      applySettingsToLayout();
+      ensureMountedAtPosition();
+      closeBookmarkMenu();
+      layoutToolbar();
+    });
+  }
+
+  async function init() {
+    settings = await readSettings();
+    applySettingsToLayout();
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', mountToolbar, { once: true });
+    } else {
+      mountToolbar();
+    }
+
+    try {
+      await refreshBookmarks();
+    } catch (error) {
+      console.error(error);
+      list.replaceChildren(renderEmptyState('Could not load toolbar bookmarks in page.'));
     }
   }
 

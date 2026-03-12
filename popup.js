@@ -1,13 +1,21 @@
 const statusEl = document.getElementById('status');
 const listEl = document.getElementById('bookmarkList');
+const scaleSelectEl = document.getElementById('scaleSelect');
+const iconOnlyToggleEl = document.getElementById('iconOnlyToggle');
+const positionSelectEl = document.getElementById('positionSelect');
+const openModeSelectEl = document.getElementById('openModeSelect');
+const settingsStatusEl = document.getElementById('settingsStatus');
 
-/**
- * Build a favicon URL that is allowed inside extension pages.
- *
- * Why this endpoint?
- * - chrome://favicon2 cannot be relied on from MV3 extension popups.
- * - /_favicon/ is the supported extension endpoint when "favicon" permission is granted.
- */
+const TOOLBAR_SETTINGS_KEY = 'toolbarSettings';
+const DEFAULT_TOOLBAR_SETTINGS = {
+  scale: '2',
+  iconOnly: true,
+  position: 'top',
+  openMode: 'current',
+};
+
+let currentToolbarSettings = { ...DEFAULT_TOOLBAR_SETTINGS };
+
 function faviconUrl(pageUrl, size = 32) {
   const favicon = new URL(chrome.runtime.getURL('/_favicon/'));
   favicon.searchParams.set('pageUrl', pageUrl);
@@ -15,9 +23,6 @@ function faviconUrl(pageUrl, size = 32) {
   return favicon.toString();
 }
 
-/**
- * Local lightweight SVG fallback so users never see broken-image placeholders.
- */
 function fallbackIconDataUrl() {
   const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" fill="none">
@@ -29,9 +34,17 @@ function fallbackIconDataUrl() {
   return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
 }
 
-/**
- * Render one bookmark tile with large icon and tooltip text.
- */
+function applyOpenModeToLink(link) {
+  if (currentToolbarSettings.openMode === 'new') {
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    return;
+  }
+
+  link.removeAttribute('target');
+  link.removeAttribute('rel');
+}
+
 function renderBookmark(bookmark) {
   const li = document.createElement('li');
   li.className = 'bookmark-item';
@@ -39,8 +52,7 @@ function renderBookmark(bookmark) {
   const a = document.createElement('a');
   a.className = 'bookmark-link';
   a.href = bookmark.url;
-  a.target = '_blank';
-  a.rel = 'noopener noreferrer';
+  applyOpenModeToLink(a);
   a.title = `${bookmark.title || bookmark.url}\n${bookmark.url}`;
 
   const img = document.createElement('img');
@@ -49,8 +61,6 @@ function renderBookmark(bookmark) {
   img.loading = 'lazy';
   img.decoding = 'async';
   img.src = faviconUrl(bookmark.url, 32);
-
-  // If a site has no favicon (or blocks retrieval), switch to a clean local fallback icon.
   img.addEventListener('error', () => {
     img.src = fallbackIconDataUrl();
   }, { once: true });
@@ -64,9 +74,6 @@ function renderBookmark(bookmark) {
   return li;
 }
 
-/**
- * Reads only top-level bookmarks from the bookmarks toolbar folder.
- */
 async function loadToolbarBookmarks() {
   const toolbarItems = await chrome.bookmarks.getChildren('1');
   return toolbarItems.filter((item) => Boolean(item.url));
@@ -76,9 +83,70 @@ function showStatus(message) {
   statusEl.textContent = message;
 }
 
+function showSettingsStatus(message) {
+  settingsStatusEl.textContent = message;
+}
+
+function applySettingsToForm(settings) {
+  scaleSelectEl.value = String(settings.scale);
+  iconOnlyToggleEl.checked = Boolean(settings.iconOnly);
+  positionSelectEl.value = settings.position;
+  openModeSelectEl.value = settings.openMode || 'current';
+}
+
+async function readToolbarSettings() {
+  const storage = await chrome.storage.sync.get(TOOLBAR_SETTINGS_KEY);
+  const merged = {
+    ...DEFAULT_TOOLBAR_SETTINGS,
+    ...(storage?.[TOOLBAR_SETTINGS_KEY] || {}),
+  };
+
+  if (!['current', 'new'].includes(merged.openMode)) {
+    merged.openMode = DEFAULT_TOOLBAR_SETTINGS.openMode;
+  }
+
+  return merged;
+}
+
+async function persistToolbarSettings() {
+  const settings = {
+    scale: scaleSelectEl.value,
+    iconOnly: iconOnlyToggleEl.checked,
+    position: positionSelectEl.value,
+    openMode: openModeSelectEl.value,
+  };
+
+  currentToolbarSettings = settings;
+  await chrome.storage.sync.set({ [TOOLBAR_SETTINGS_KEY]: settings });
+  showSettingsStatus('Saved. Open/reload a page to apply launcher changes.');
+}
+
+async function initSettings() {
+  if (!globalThis.chrome?.storage?.sync) {
+    showSettingsStatus('Settings unavailable in demo mode.');
+    return;
+  }
+
+  const settings = await readToolbarSettings();
+  currentToolbarSettings = settings;
+  applySettingsToForm(settings);
+  showSettingsStatus('Settings saved automatically.');
+
+  const onChange = () => {
+    persistToolbarSettings().catch((error) => {
+      console.error(error);
+      showSettingsStatus('Could not save settings.');
+    });
+  };
+
+  scaleSelectEl.addEventListener('change', onChange);
+  iconOnlyToggleEl.addEventListener('change', onChange);
+  positionSelectEl.addEventListener('change', onChange);
+  openModeSelectEl.addEventListener('change', onChange);
+}
+
 async function init() {
   try {
-    // Demo fallback helps local preview/screenshot in non-extension environments.
     if (!globalThis.chrome?.bookmarks || !globalThis.chrome?.runtime) {
       const demo = [
         { title: 'GitHub', url: 'https://github.com' },
@@ -89,6 +157,8 @@ async function init() {
       return;
     }
 
+    await initSettings();
+
     showStatus('Loading bookmarks…');
     const bookmarks = await loadToolbarBookmarks();
 
@@ -98,10 +168,11 @@ async function init() {
     }
 
     listEl.replaceChildren(...bookmarks.map(renderBookmark));
-    showStatus(`Showing ${bookmarks.length} bookmark${bookmarks.length === 1 ? '' : 's'} with 2× icons.`);
+    showStatus(`Showing ${bookmarks.length} bookmark${bookmarks.length === 1 ? '' : 's'} with 2× popup icons.`);
   } catch (error) {
     console.error(error);
     showStatus('Could not load bookmarks. Check extension permissions and try again.');
+    showSettingsStatus('Could not load toolbar settings.');
   }
 }
 
