@@ -32,6 +32,8 @@
     // User-adjustable shell look.
     barBackgroundOpacity: 95,
     barBackgroundColor: '#0f172a',
+    // Top/bottom launcher width (% of page width).
+    barWidthPercent: 100,
   };
 
   if (document.getElementById(ROOT_ID)) {
@@ -409,6 +411,11 @@
       ? color.toLowerCase()
       : DEFAULT_SETTINGS.barBackgroundColor;
 
+    const widthPercent = Number.parseInt(normalized.barWidthPercent, 10);
+    normalized.barWidthPercent = Number.isFinite(widthPercent)
+      ? Math.min(100, Math.max(25, widthPercent))
+      : DEFAULT_SETTINGS.barWidthPercent;
+
     // Backward compatibility: migrate legacy transparent toggle value to 0% opacity
     // unless explicit opacity was already saved.
     if (raw?.transparentBackground === true && raw?.barBackgroundOpacity == null) {
@@ -460,6 +467,19 @@
     root.dataset.hoverGrowIcons = String(settings.hoverGrowIcons);
     root.style.setProperty('--bf-hover-grow-scale', String(settings.hoverGrowScale));
     root.style.setProperty('--bf-hover-grow-duration', `${settings.hoverGrowSpeed}ms`);
+
+    // Width slider applies to top/bottom bars only. Side rails keep natural width.
+    if (settings.position === 'top' || settings.position === 'bottom') {
+      root.style.width = `${settings.barWidthPercent}%`;
+      root.style.maxWidth = '100vw';
+      root.style.left = '0';
+      root.style.right = 'auto';
+    } else {
+      root.style.removeProperty('width');
+      root.style.removeProperty('max-width');
+      root.style.removeProperty('left');
+      root.style.removeProperty('right');
+    }
 
     // Apply user-tunable shell color + opacity inline so page CSS cannot override.
     const shellRgb = hexToRgb(settings.barBackgroundColor);

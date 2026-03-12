@@ -8,6 +8,8 @@ const hoverGrowIconsToggleEl = document.getElementById('hoverGrowIconsToggle');
 const barBackgroundOpacityRangeEl = document.getElementById('barBackgroundOpacityRange');
 const barBackgroundOpacityValueEl = document.getElementById('barBackgroundOpacityValue');
 const barBackgroundColorInputEl = document.getElementById('barBackgroundColorInput');
+const barWidthPercentRangeEl = document.getElementById('barWidthPercentRange');
+const barWidthPercentValueEl = document.getElementById('barWidthPercentValue');
 const hoverGrowScaleSelectEl = document.getElementById('hoverGrowScaleSelect');
 const hoverGrowSpeedSelectEl = document.getElementById('hoverGrowSpeedSelect');
 const positionSelectEl = document.getElementById('positionSelect');
@@ -31,6 +33,8 @@ const DEFAULT_TOOLBAR_SETTINGS = {
   // Default shell visuals match existing dark launcher look.
   barBackgroundOpacity: 95,
   barBackgroundColor: '#0f172a',
+  // Top/bottom launcher width (% of page width).
+  barWidthPercent: 100,
 };
 
 let currentToolbarSettings = { ...DEFAULT_TOOLBAR_SETTINGS };
@@ -72,11 +76,23 @@ function normalizeHexColor(value) {
   return /^#[0-9A-Fa-f]{6}$/.test(text) ? text.toLowerCase() : DEFAULT_TOOLBAR_SETTINGS.barBackgroundColor;
 }
 
+
+function normalizeBarWidthPercent(value) {
+  const numeric = Number.parseInt(value, 10);
+  if (!Number.isFinite(numeric)) {
+    return DEFAULT_TOOLBAR_SETTINGS.barWidthPercent;
+  }
+  return Math.min(100, Math.max(25, numeric));
+}
+
 function updateBarBackgroundPreview() {
   const opacity = normalizeBarBackgroundOpacity(barBackgroundOpacityRangeEl.value);
   barBackgroundOpacityValueEl.textContent = `${opacity}%`;
 
-  // Show a small inline preview swatch directly in the color input background.
+  const widthPercent = normalizeBarWidthPercent(barWidthPercentRangeEl.value);
+  barWidthPercentValueEl.textContent = `${widthPercent}%`;
+
+  // Keep color input value normalized for stable storage values.
   const color = normalizeHexColor(barBackgroundColorInputEl.value);
   barBackgroundColorInputEl.value = color;
 }
@@ -99,6 +115,7 @@ function applySettingsToForm(settings) {
   hoverGrowIconsToggleEl.checked = Boolean(settings.hoverGrowIcons);
   barBackgroundOpacityRangeEl.value = String(settings.barBackgroundOpacity);
   barBackgroundColorInputEl.value = settings.barBackgroundColor;
+  barWidthPercentRangeEl.value = String(settings.barWidthPercent);
   hoverGrowScaleSelectEl.value = Number(settings.hoverGrowScale).toFixed(2);
   hoverGrowSpeedSelectEl.value = String(settings.hoverGrowSpeed);
   positionSelectEl.value = settings.position;
@@ -127,6 +144,7 @@ async function readToolbarSettings() {
   merged.hoverGrowSpeed = normalizeHoverGrowSpeed(merged.hoverGrowSpeed);
   merged.barBackgroundColor = normalizeHexColor(merged.barBackgroundColor);
   merged.barBackgroundOpacity = normalizeBarBackgroundOpacity(merged.barBackgroundOpacity);
+  merged.barWidthPercent = normalizeBarWidthPercent(merged.barWidthPercent);
 
   // Backward compatibility: old "transparentBackground" becomes 0% opacity
   // if no explicit opacity was saved yet.
@@ -151,6 +169,7 @@ async function persistToolbarSettings() {
     // User-tunable shell look.
     barBackgroundOpacity: normalizeBarBackgroundOpacity(barBackgroundOpacityRangeEl.value),
     barBackgroundColor: normalizeHexColor(barBackgroundColorInputEl.value),
+    barWidthPercent: normalizeBarWidthPercent(barWidthPercentRangeEl.value),
     position: positionSelectEl.value,
     openMode: openModeSelectEl.value,
   };
@@ -192,6 +211,8 @@ async function initSettings() {
   barBackgroundOpacityRangeEl.addEventListener('change', onChange);
   barBackgroundColorInputEl.addEventListener('input', onChange);
   barBackgroundColorInputEl.addEventListener('change', onChange);
+  barWidthPercentRangeEl.addEventListener('input', onChange);
+  barWidthPercentRangeEl.addEventListener('change', onChange);
   hoverGrowScaleSelectEl.addEventListener('change', onChange);
   hoverGrowSpeedSelectEl.addEventListener('change', onChange);
   positionSelectEl.addEventListener('change', onChange);
