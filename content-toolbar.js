@@ -107,6 +107,52 @@
   let selectedBookmarkId = null;
   let draggedBookmarkId = null;
   let topHideTimer = null;
+  let runtimeUnavailable = false;
+
+  function isRuntimeContextInvalidated(error) {
+    const message = String(error?.message || error || '');
+    return message.includes('Extension context invalidated')
+      || message.includes('Receiving end does not exist')
+      || message.includes('message port closed');
+  }
+
+  /**
+   * When extension context is reloaded, disable mutating controls and show a clear recovery hint.
+   */
+  function markRuntimeUnavailable(reasonText) {
+    if (runtimeUnavailable) {
+      return;
+    }
+
+    runtimeUnavailable = true;
+    closeOverflowMenu();
+    closeBookmarkMenu();
+    clearTopHideTimer();
+
+    addCurrentBtn.disabled = true;
+    overflowBtn.disabled = true;
+    addCurrentBtn.title = 'Extension reloaded. Refresh this page to re-enable add bookmark.';
+    overflowBtn.title = 'Extension reloaded. Refresh this page to re-enable hidden bookmarks.';
+
+    list.replaceChildren(renderEmptyState(reasonText));
+  }
+
+  async function sendRuntimeMessage(payload, actionLabel) {
+    if (!chrome?.runtime?.id) {
+      markRuntimeUnavailable('Extension unavailable. Refresh this page after reloading the extension.');
+      throw new Error('Extension runtime unavailable.');
+    }
+
+    try {
+      return await chrome.runtime.sendMessage(payload);
+    } catch (error) {
+      if (isRuntimeContextInvalidated(error)) {
+        markRuntimeUnavailable('Extension was updated/reloaded. Refresh this page to reconnect Big Favorites.');
+        throw new Error(`${actionLabel} unavailable because extension context was reloaded.`);
+      }
+      throw error;
+    }
+  }
 
   function closeOverflowMenu() {
     overflowMenu.hidden = true;
@@ -119,7 +165,9 @@
   function updateOverflowToggleUi() {
     const isOpen = !overflowMenu.hidden;
     overflowBtn.textContent = isOpen ? '×' : '»';
-    overflowBtn.title = isOpen ? 'Hide hidden bookmarks' : 'Show hidden bookmarks';
+    if (!runtimeUnavailable) {
+      overflowBtn.title = isOpen ? 'Hide hidden bookmarks' : 'Show hidden bookmarks';
+    }
     overflowBtn.setAttribute('aria-label', isOpen ? 'Hide hidden bookmarks dropdown' : 'Show hidden bookmarks in dropdown');
     overflowBtn.setAttribute('aria-expanded', String(isOpen));
   }
@@ -185,19 +233,10 @@
   }
 
   async function requestBookmarks() {
-    let response;
-
-    try {
-      response = await chrome.runtime.sendMessage({ type: 'GET_TOOLBAR_BOOKMARKS' });
-    } catch (error) {
-      // Provide a clearer error when the worker is unavailable so users know
-      // a quick extension reload usually restores the message channel.
-      const message = String(error?.message || error || 'Unknown runtime error');
-      if (message.includes('Receiving end does not exist')) {
-        throw new Error('Background worker unavailable. Reload the extension, then refresh this page.');
-      }
-      throw error;
-    }
+    const response = await sendRuntimeMessage(
+      { type: 'GET_TOOLBAR_BOOKMARKS' },
+      'Bookmark loading',
+    );
 
     if (!response?.ok) {
       throw new Error(response?.error || 'Unknown bookmark loading error');
@@ -268,11 +307,11 @@
       toIndex -= 1;
     }
 
-    const response = await chrome.runtime.sendMessage({
+    const response = await sendRuntimeMessage({
       type: 'MOVE_TOOLBAR_BOOKMARK',
       bookmarkId: dragId,
       toIndex,
-    });
+    }, 'Bookmark reordering');
 
     if (!response?.ok) {
       throw new Error(response?.error || 'Could not reorder bookmark');
@@ -741,11 +780,11 @@
 
   addCurrentBtn.addEventListener('click', async () => {
     try {
-      const response = await chrome.runtime.sendMessage({
+      const response = await sendRuntimeMessage({
         type: 'ADD_TOOLBAR_BOOKMARK',
         url: window.location.href,
         title: document.title,
-      });
+      }, 'Add bookmark');
 
       if (!response?.ok) {
         throw new Error(response?.error || 'Could not add current page');
@@ -786,10 +825,10 @@
     }
 
     try {
-      const response = await chrome.runtime.sendMessage({
+      const response = await sendRuntimeMessage({
         type: 'REMOVE_TOOLBAR_BOOKMARK',
         bookmarkId: selectedBookmarkId,
-      });
+      }, 'Remove bookmark');
 
       if (!response?.ok) {
         throw new Error(response?.error || 'Could not remove bookmark');
@@ -888,10 +927,10 @@
     }
 
     try {
-      const response = await chrome.runtime.sendMessage({
+      const response = await sendRuntimeMessage({
         type: 'ADD_TOOLBAR_BOOKMARK',
         url,
-      });
+      }, 'Add dropped bookmark');
 
       if (!response?.ok) {
         throw new Error(response?.error || 'Could not add bookmark');
