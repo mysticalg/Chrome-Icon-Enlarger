@@ -137,14 +137,15 @@
   flex: 0 0 var(--bf-icon-size);
   object-fit: contain;
   background: rgba(100, 116, 139, 0.2);
-  transition: transform 130ms ease;
+  /* Dock-like hover pop: slower + springy easing while tile bounds stay fixed. */
+  transition: transform 240ms cubic-bezier(0.22, 1, 0.36, 1);
   transform-origin: center;
 }
 
 /* Optional icon-only hover growth without resizing toolbar tiles. */
 .bf-toolbar[data-hover-grow-icons='true'] .bf-toolbar__item:hover .bf-toolbar__icon,
 .bf-toolbar[data-hover-grow-icons='true'] .bf-toolbar__overflow-item:hover .bf-toolbar__overflow-icon {
-  transform: scale(1.12);
+  transform: scale(1.2) translateY(-1px);
 }
 
 .bf-toolbar__text {
@@ -241,7 +242,7 @@
   flex: 0 0 var(--bf-icon-size);
   object-fit: contain;
   background: rgba(100, 116, 139, 0.2);
-  transition: transform 130ms ease;
+  transition: transform 240ms cubic-bezier(0.22, 1, 0.36, 1);
   transform-origin: center;
 }
 
