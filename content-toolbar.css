@@ -1,8 +1,12 @@
 .bf-toolbar {
   --bf-icon-size: 32px;
   --bf-slot-size: 42px;
-  position: relative;
-  z-index: 1;
+  --bf-hover-grow-scale: 1.2;
+  --bf-hover-grow-duration: 240ms;
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 2147483646;
   width: 100%;
   background: rgba(15, 23, 42, 0.95);
   color: #f8fafc;
@@ -10,9 +14,33 @@
   backdrop-filter: blur(8px);
   font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
   padding: 4px 10px;
+  transition: transform 180ms ease, opacity 180ms ease;
+}
+
+.bf-toolbar-spacer {
+  display: block;
+  width: 100%;
+  --bf-spacer-height: 52px;
+  height: var(--bf-spacer-height);
+  opacity: 1;
+  transition: height 180ms ease, opacity 180ms ease;
+  pointer-events: none;
+}
+
+/* Keep spacer motion in sync with top-toolbar auto-hide animation. */
+.bf-toolbar-spacer[data-collapsed='true'] {
+  height: 0;
+  opacity: 0;
+}
+
+.bf-toolbar[data-position='top'][data-collapsed='true'] {
+  transform: translateY(calc(-100% + 4px));
+  opacity: 0.95;
 }
 
 .bf-toolbar[data-position='bottom'] {
+  top: auto;
+  bottom: 0;
   border-top: 1px solid rgba(148, 163, 184, 0.35);
   border-bottom: none;
 }
@@ -52,7 +80,8 @@
 }
 
 .bf-toolbar__item,
-.bf-toolbar__overflow-btn {
+.bf-toolbar__overflow-btn,
+.bf-toolbar__add-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -99,6 +128,19 @@
   -webkit-appearance: none;
 }
 
+.bf-toolbar__add-btn {
+  cursor: pointer;
+  margin-left: auto;
+  font-size: 22px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.bf-toolbar[data-position='left'] .bf-toolbar__add-btn,
+.bf-toolbar[data-position='right'] .bf-toolbar__add-btn {
+  margin-left: 0;
+}
+
 .bf-toolbar__icon {
   width: var(--bf-icon-size);
   height: var(--bf-icon-size);
@@ -106,6 +148,15 @@
   flex: 0 0 var(--bf-icon-size);
   object-fit: contain;
   background: rgba(100, 116, 139, 0.2);
+  /* Dock-like hover pop: slower + springy easing while tile bounds stay fixed. */
+  transition: transform var(--bf-hover-grow-duration) cubic-bezier(0.22, 1, 0.36, 1);
+  transform-origin: center;
+}
+
+/* Optional icon-only hover growth without resizing toolbar tiles. */
+.bf-toolbar[data-hover-grow-icons='true'] .bf-toolbar__item:hover .bf-toolbar__icon,
+.bf-toolbar[data-hover-grow-icons='true'] .bf-toolbar__overflow-item:hover .bf-toolbar__overflow-icon {
+  transform: scale(var(--bf-hover-grow-scale)) translateY(-1px);
 }
 
 .bf-toolbar__text {
@@ -202,6 +253,8 @@
   flex: 0 0 var(--bf-icon-size);
   object-fit: contain;
   background: rgba(100, 116, 139, 0.2);
+  transition: transform var(--bf-hover-grow-duration) cubic-bezier(0.22, 1, 0.36, 1);
+  transform-origin: center;
 }
 
 .bf-toolbar[data-icon-only='true'] .bf-toolbar__overflow-text {

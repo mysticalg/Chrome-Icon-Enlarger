@@ -5,6 +5,7 @@
  * - icon scale (2x/4x/8x)
  * - icon-only mode (force no text)
  * - toolbar position (top/bottom/left/right)
+ * - hover-grow icon scale + speed (without resizing toolbar tiles)
  */
 (() => {
   if (window.top !== window) {
@@ -20,6 +21,12 @@
     iconOnly: true,
     position: 'top',
     openMode: 'current',
+    autoHideTop: true,
+    hoverGrowIcons: false,
+    hoverGrowScale: 1.2,
+    hoverGrowSpeed: 240,
+    // Default on: keeps page position stable while top toolbar auto-hides.
+    keepSpacerOnAutoHide: true,
   };
 
   if (document.getElementById(ROOT_ID)) {
@@ -31,6 +38,11 @@
   root.className = 'bf-toolbar';
   root.setAttribute('aria-label', 'Big Favorites in-page toolbar');
 
+  // Spacer keeps page content from being hidden under the fixed top toolbar.
+  const topSpacer = document.createElement('div');
+  topSpacer.className = 'bf-toolbar-spacer';
+  topSpacer.setAttribute('aria-hidden', 'true');
+
   const list = document.createElement('nav');
   list.className = 'bf-toolbar__list';
   list.setAttribute('aria-label', 'Bookmark shortcuts');
@@ -41,6 +53,13 @@
   overflowBtn.textContent = '»';
   overflowBtn.title = 'Show hidden bookmarks';
   overflowBtn.setAttribute('aria-label', 'Show hidden bookmarks in dropdown');
+
+  const addCurrentBtn = document.createElement('button');
+  addCurrentBtn.className = 'bf-toolbar__add-btn';
+  addCurrentBtn.type = 'button';
+  addCurrentBtn.textContent = '+';
+  addCurrentBtn.title = 'Add this page to the bookmarks toolbar';
+  addCurrentBtn.setAttribute('aria-label', 'Add current page to bookmarks toolbar');
 
   const overflowMenu = document.createElement('div');
   overflowMenu.className = 'bf-toolbar__overflow-menu';
@@ -71,6 +90,7 @@
   let settings = { ...DEFAULT_SETTINGS };
   let selectedBookmarkId = null;
   let draggedBookmarkId = null;
+  let topHideTimer = null;
 
   function closeOverflowMenu() {
     overflowMenu.hidden = true;
@@ -82,8 +102,64 @@
     selectedBookmarkId = null;
   }
 
+  function clearTopHideTimer() {
+    if (topHideTimer) {
+      clearTimeout(topHideTimer);
+      topHideTimer = null;
+    }
+  }
+
+  function isTopAutoHideEnabled() {
+    return settings.position === 'top' && settings.autoHideTop;
+  }
+
+  function showToolbarAnimated() {
+    if (!isTopAutoHideEnabled()) {
+      return;
+    }
+    clearTopHideTimer();
+    root.dataset.collapsed = 'false';
+    topSpacer.dataset.collapsed = 'false';
+  }
+
+  function hideToolbarAnimated() {
+    if (!isTopAutoHideEnabled()) {
+      return;
+    }
+    if (root.matches(':hover') || !overflowMenu.hidden || !bookmarkMenu.hidden) {
+      return;
+    }
+    root.dataset.collapsed = 'true';
+
+    // Optional mode: keep layout spacer visible while toolbar slides away.
+    topSpacer.dataset.collapsed = settings.keepSpacerOnAutoHide ? 'false' : 'true';
+  }
+
+  function scheduleToolbarHide(delayMs = 700) {
+    if (!isTopAutoHideEnabled()) {
+      return;
+    }
+    clearTopHideTimer();
+    topHideTimer = setTimeout(() => {
+      hideToolbarAnimated();
+    }, delayMs);
+  }
+
   async function requestBookmarks() {
-    const response = await chrome.runtime.sendMessage({ type: 'GET_TOOLBAR_BOOKMARKS' });
+    let response;
+
+    try {
+      response = await chrome.runtime.sendMessage({ type: 'GET_TOOLBAR_BOOKMARKS' });
+    } catch (error) {
+      // Provide a clearer error when the worker is unavailable so users know
+      // a quick extension reload usually restores the message channel.
+      const message = String(error?.message || error || 'Unknown runtime error');
+      if (message.includes('Receiving end does not exist')) {
+        throw new Error('Background worker unavailable. Reload the extension, then refresh this page.');
+      }
+      throw error;
+    }
+
     if (!response?.ok) {
       throw new Error(response?.error || 'Unknown bookmark loading error');
     }
@@ -309,6 +385,20 @@
     if (!['current', 'new'].includes(normalized.openMode)) {
       normalized.openMode = DEFAULT_SETTINGS.openMode;
     }
+    normalized.autoHideTop = Boolean(normalized.autoHideTop);
+    normalized.hoverGrowIcons = Boolean(normalized.hoverGrowIcons);
+    normalized.keepSpacerOnAutoHide = Boolean(normalized.keepSpacerOnAutoHide);
+
+    const hoverGrowScale = Number.parseFloat(normalized.hoverGrowScale);
+    normalized.hoverGrowScale = Number.isFinite(hoverGrowScale)
+      ? Math.min(1.5, Math.max(1.05, hoverGrowScale))
+      : DEFAULT_SETTINGS.hoverGrowScale;
+
+    const hoverGrowSpeed = Number.parseInt(normalized.hoverGrowSpeed, 10);
+    normalized.hoverGrowSpeed = Number.isFinite(hoverGrowSpeed)
+      ? Math.min(700, Math.max(100, hoverGrowSpeed))
+      : DEFAULT_SETTINGS.hoverGrowSpeed;
+
     return normalized;
   }
 
@@ -329,11 +419,34 @@
     root.style.setProperty('--bf-slot-size', `${slotPx}px`);
     root.dataset.iconOnly = String(settings.iconOnly);
     root.dataset.position = settings.position;
+    root.dataset.hoverGrowIcons = String(settings.hoverGrowIcons);
+    root.style.setProperty('--bf-hover-grow-scale', String(settings.hoverGrowScale));
+    root.style.setProperty('--bf-hover-grow-duration', `${settings.hoverGrowSpeed}ms`);
+
+    if (settings.position === 'top') {
+      topSpacer.style.setProperty('--bf-spacer-height', `${slotPx + 10}px`);
+    } else {
+      topSpacer.style.setProperty('--bf-spacer-height', '0px');
+    }
+
+    if (isTopAutoHideEnabled()) {
+      root.dataset.collapsed = 'true';
+      topSpacer.dataset.collapsed = settings.keepSpacerOnAutoHide ? 'false' : 'true';
+    } else {
+      root.dataset.collapsed = 'false';
+      topSpacer.dataset.collapsed = 'false';
+    }
   }
 
   function mountToolbar() {
     const mountTarget = document.body || document.documentElement;
     if (!mountTarget) {
+      return;
+    }
+
+    if (settings.position === 'top') {
+      mountTarget.prepend(topSpacer);
+      topSpacer.before(root);
       return;
     }
 
@@ -356,11 +469,26 @@
     }
 
     if (settings.position === 'bottom' && root !== parent.lastElementChild) {
+      topSpacer.remove();
       parent.append(root);
+    }
+
+    if (settings.position === 'top') {
+      if (!topSpacer.isConnected) {
+        parent.prepend(topSpacer);
+      }
+      if (root.previousElementSibling !== topSpacer) {
+        topSpacer.after(root);
+      }
+      return;
     }
 
     if (settings.position !== 'bottom' && root !== parent.firstElementChild) {
       parent.prepend(root);
+    }
+
+    if (topSpacer.isConnected) {
+      topSpacer.remove();
     }
   }
 
@@ -391,17 +519,28 @@
       ? maxSlotsForHeight(list.clientHeight)
       : maxSlotsForWidth(list.clientWidth);
 
-    let visibleCount = Math.min(allBookmarks.length, Math.max(0, totalSlots));
-    if (visibleCount < allBookmarks.length) {
-      // Reserve one slot for the overflow menu trigger when needed.
-      visibleCount = Math.min(allBookmarks.length, Math.max(0, totalSlots - 1));
+    // Reserve fixed action space so right-edge buttons never get clipped.
+    const addActionSlots = 1;
+    const availableForBookmarks = Math.max(0, totalSlots - addActionSlots);
+
+    let visibleCount = Math.min(allBookmarks.length, availableForBookmarks);
+    let hiddenCount = allBookmarks.length - visibleCount;
+
+    // If we still need overflow, reserve one more slot for its trigger.
+    if (hiddenCount > 0) {
+      visibleCount = Math.max(0, availableForBookmarks - 1);
+      hiddenCount = allBookmarks.length - visibleCount;
     }
 
     const visible = allBookmarks.slice(0, visibleCount);
-    const hidden = allBookmarks.slice(visibleCount);
+    const hidden = allBookmarks.slice(visibleCount, visibleCount + hiddenCount);
     lastHiddenBookmarks = hidden;
 
     const children = [...visible.map(renderBookmark)];
+
+    // Keep the add action before overflow as requested, while both stay on the far edge.
+    children.push(addCurrentBtn);
+
     if (hidden.length > 0) {
       children.push(overflowBtn);
     }
@@ -417,6 +556,26 @@
       overflowBtn.setAttribute('aria-expanded', 'true');
     } else {
       closeOverflowMenu();
+    }
+  });
+
+  addCurrentBtn.addEventListener('click', async () => {
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: 'ADD_TOOLBAR_BOOKMARK',
+        url: window.location.href,
+        title: document.title,
+      });
+
+      if (!response?.ok) {
+        throw new Error(response?.error || 'Could not add current page');
+      }
+
+      await refreshBookmarks();
+      showToolbarAnimated();
+      scheduleToolbarHide();
+    } catch (error) {
+      console.error(error);
     }
   });
 
@@ -480,6 +639,14 @@
     draggedBookmarkId = null;
     root.classList.remove('is-drop-target');
     clearReorderMarkers();
+  });
+
+  root.addEventListener('mouseenter', () => {
+    showToolbarAnimated();
+  });
+
+  root.addEventListener('mouseleave', () => {
+    scheduleToolbarHide(800);
   });
 
   root.addEventListener('dragover', (event) => {
@@ -584,6 +751,32 @@
     layoutToolbar();
   });
 
+  // Auto-reveal top launcher when pointer nears page top.
+  document.addEventListener('mousemove', (event) => {
+    if (!isTopAutoHideEnabled()) {
+      return;
+    }
+
+    if (event.clientY <= 24) {
+      showToolbarAnimated();
+      return;
+    }
+
+    if (!root.matches(':hover')) {
+      scheduleToolbarHide(450);
+    }
+  }, { passive: true });
+
+  window.addEventListener('scroll', () => {
+    if (!isTopAutoHideEnabled()) {
+      return;
+    }
+
+    if (!root.matches(':hover')) {
+      scheduleToolbarHide(300);
+    }
+  }, { passive: true });
+
   if (chrome.storage?.onChanged) {
     chrome.storage.onChanged.addListener((changes, area) => {
       if (area !== 'sync' || !changes[TOOLBAR_SETTINGS_KEY]) {
@@ -595,6 +788,12 @@
       ensureMountedAtPosition();
       closeBookmarkMenu();
       layoutToolbar();
+
+      if (isTopAutoHideEnabled()) {
+        scheduleToolbarHide(600);
+      } else {
+        clearTopHideTimer();
+      }
     });
   }
 

@@ -1,7 +1,11 @@
 const statusEl = document.getElementById('status');
-const listEl = document.getElementById('bookmarkList');
 const scaleSelectEl = document.getElementById('scaleSelect');
 const iconOnlyToggleEl = document.getElementById('iconOnlyToggle');
+const autoHideTopToggleEl = document.getElementById('autoHideTopToggle');
+const keepSpacerOnAutoHideToggleEl = document.getElementById('keepSpacerOnAutoHideToggle');
+const hoverGrowIconsToggleEl = document.getElementById('hoverGrowIconsToggle');
+const hoverGrowScaleSelectEl = document.getElementById('hoverGrowScaleSelect');
+const hoverGrowSpeedSelectEl = document.getElementById('hoverGrowSpeedSelect');
 const positionSelectEl = document.getElementById('positionSelect');
 const openModeSelectEl = document.getElementById('openModeSelect');
 const settingsStatusEl = document.getElementById('settingsStatus');
@@ -12,72 +16,15 @@ const DEFAULT_TOOLBAR_SETTINGS = {
   iconOnly: true,
   position: 'top',
   openMode: 'current',
+  autoHideTop: true,
+  // Default on: keeps top spacing stable when toolbar is hidden.
+  keepSpacerOnAutoHide: true,
+  hoverGrowIcons: false,
+  hoverGrowScale: 1.2,
+  hoverGrowSpeed: 240,
 };
 
 let currentToolbarSettings = { ...DEFAULT_TOOLBAR_SETTINGS };
-
-function faviconUrl(pageUrl, size = 32) {
-  const favicon = new URL(chrome.runtime.getURL('/_favicon/'));
-  favicon.searchParams.set('pageUrl', pageUrl);
-  favicon.searchParams.set('size', String(size));
-  return favicon.toString();
-}
-
-function fallbackIconDataUrl() {
-  const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" fill="none">
-      <rect x="1" y="1" width="30" height="30" rx="7" fill="#243348" stroke="#486283"/>
-      <path d="M8 17.5h16M8 12.5h16M8 22.5h10" stroke="#9FB7D6" stroke-width="2" stroke-linecap="round"/>
-    </svg>
-  `.trim();
-
-  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
-}
-
-function applyOpenModeToLink(link) {
-  if (currentToolbarSettings.openMode === 'new') {
-    link.target = '_blank';
-    link.rel = 'noopener noreferrer';
-    return;
-  }
-
-  link.removeAttribute('target');
-  link.removeAttribute('rel');
-}
-
-function renderBookmark(bookmark) {
-  const li = document.createElement('li');
-  li.className = 'bookmark-item';
-
-  const a = document.createElement('a');
-  a.className = 'bookmark-link';
-  a.href = bookmark.url;
-  applyOpenModeToLink(a);
-  a.title = `${bookmark.title || bookmark.url}\n${bookmark.url}`;
-
-  const img = document.createElement('img');
-  img.className = 'bookmark-icon';
-  img.alt = '';
-  img.loading = 'lazy';
-  img.decoding = 'async';
-  img.src = faviconUrl(bookmark.url, 32);
-  img.addEventListener('error', () => {
-    img.src = fallbackIconDataUrl();
-  }, { once: true });
-
-  const title = document.createElement('span');
-  title.className = 'bookmark-title';
-  title.textContent = bookmark.title || new URL(bookmark.url).hostname;
-
-  a.append(img, title);
-  li.append(a);
-  return li;
-}
-
-async function loadToolbarBookmarks() {
-  const toolbarItems = await chrome.bookmarks.getChildren('1');
-  return toolbarItems.filter((item) => Boolean(item.url));
-}
 
 function showStatus(message) {
   statusEl.textContent = message;
@@ -87,9 +34,30 @@ function showSettingsStatus(message) {
   settingsStatusEl.textContent = message;
 }
 
+function normalizeHoverGrowScale(value) {
+  const numeric = Number.parseFloat(value);
+  if (!Number.isFinite(numeric)) {
+    return DEFAULT_TOOLBAR_SETTINGS.hoverGrowScale;
+  }
+  return Math.min(1.5, Math.max(1.05, numeric));
+}
+
+function normalizeHoverGrowSpeed(value) {
+  const numeric = Number.parseInt(value, 10);
+  if (!Number.isFinite(numeric)) {
+    return DEFAULT_TOOLBAR_SETTINGS.hoverGrowSpeed;
+  }
+  return Math.min(700, Math.max(100, numeric));
+}
+
 function applySettingsToForm(settings) {
   scaleSelectEl.value = String(settings.scale);
   iconOnlyToggleEl.checked = Boolean(settings.iconOnly);
+  autoHideTopToggleEl.checked = Boolean(settings.autoHideTop);
+  keepSpacerOnAutoHideToggleEl.checked = Boolean(settings.keepSpacerOnAutoHide);
+  hoverGrowIconsToggleEl.checked = Boolean(settings.hoverGrowIcons);
+  hoverGrowScaleSelectEl.value = Number(settings.hoverGrowScale).toFixed(2);
+  hoverGrowSpeedSelectEl.value = String(settings.hoverGrowSpeed);
   positionSelectEl.value = settings.position;
   openModeSelectEl.value = settings.openMode || 'current';
 }
@@ -105,6 +73,12 @@ async function readToolbarSettings() {
     merged.openMode = DEFAULT_TOOLBAR_SETTINGS.openMode;
   }
 
+  merged.autoHideTop = Boolean(merged.autoHideTop);
+  merged.keepSpacerOnAutoHide = Boolean(merged.keepSpacerOnAutoHide);
+  merged.hoverGrowIcons = Boolean(merged.hoverGrowIcons);
+  merged.hoverGrowScale = normalizeHoverGrowScale(merged.hoverGrowScale);
+  merged.hoverGrowSpeed = normalizeHoverGrowSpeed(merged.hoverGrowSpeed);
+
   return merged;
 }
 
@@ -112,18 +86,24 @@ async function persistToolbarSettings() {
   const settings = {
     scale: scaleSelectEl.value,
     iconOnly: iconOnlyToggleEl.checked,
+    autoHideTop: autoHideTopToggleEl.checked,
+    keepSpacerOnAutoHide: keepSpacerOnAutoHideToggleEl.checked,
+    hoverGrowIcons: hoverGrowIconsToggleEl.checked,
+    hoverGrowScale: normalizeHoverGrowScale(hoverGrowScaleSelectEl.value),
+    hoverGrowSpeed: normalizeHoverGrowSpeed(hoverGrowSpeedSelectEl.value),
     position: positionSelectEl.value,
     openMode: openModeSelectEl.value,
   };
 
   currentToolbarSettings = settings;
   await chrome.storage.sync.set({ [TOOLBAR_SETTINGS_KEY]: settings });
-  showSettingsStatus('Saved. Open/reload a page to apply launcher changes.');
+  showSettingsStatus('Saved. Settings apply immediately on open pages.');
 }
 
 async function initSettings() {
   if (!globalThis.chrome?.storage?.sync) {
     showSettingsStatus('Settings unavailable in demo mode.');
+    showStatus('Load as a Chrome extension to save settings.');
     return;
   }
 
@@ -131,6 +111,7 @@ async function initSettings() {
   currentToolbarSettings = settings;
   applySettingsToForm(settings);
   showSettingsStatus('Settings saved automatically.');
+  showStatus('Configure toolbar behavior and hover animation.');
 
   const onChange = () => {
     persistToolbarSettings().catch((error) => {
@@ -141,37 +122,21 @@ async function initSettings() {
 
   scaleSelectEl.addEventListener('change', onChange);
   iconOnlyToggleEl.addEventListener('change', onChange);
+  autoHideTopToggleEl.addEventListener('change', onChange);
+  keepSpacerOnAutoHideToggleEl.addEventListener('change', onChange);
+  hoverGrowIconsToggleEl.addEventListener('change', onChange);
+  hoverGrowScaleSelectEl.addEventListener('change', onChange);
+  hoverGrowSpeedSelectEl.addEventListener('change', onChange);
   positionSelectEl.addEventListener('change', onChange);
   openModeSelectEl.addEventListener('change', onChange);
 }
 
 async function init() {
   try {
-    if (!globalThis.chrome?.bookmarks || !globalThis.chrome?.runtime) {
-      const demo = [
-        { title: 'GitHub', url: 'https://github.com' },
-        { title: 'YouTube', url: 'https://youtube.com' },
-      ];
-      showStatus('Demo mode: load as a Chrome extension to read your real bookmarks.');
-      listEl.replaceChildren(...demo.map(renderBookmark));
-      return;
-    }
-
     await initSettings();
-
-    showStatus('Loading bookmarks…');
-    const bookmarks = await loadToolbarBookmarks();
-
-    if (bookmarks.length === 0) {
-      showStatus('No bookmarks found on your bookmarks toolbar yet.');
-      return;
-    }
-
-    listEl.replaceChildren(...bookmarks.map(renderBookmark));
-    showStatus(`Showing ${bookmarks.length} bookmark${bookmarks.length === 1 ? '' : 's'} with 2× popup icons.`);
   } catch (error) {
     console.error(error);
-    showStatus('Could not load bookmarks. Check extension permissions and try again.');
+    showStatus('Could not load toolbar settings.');
     showSettingsStatus('Could not load toolbar settings.');
   }
 }
