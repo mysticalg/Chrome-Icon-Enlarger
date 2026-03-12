@@ -111,11 +111,20 @@
   function closeOverflowMenu() {
     overflowMenu.hidden = true;
     overflowBtn.setAttribute('aria-expanded', 'false');
+    overflowBtn.title = 'Show hidden bookmarks';
+    overflowBtn.setAttribute('aria-label', 'Show hidden bookmarks in dropdown');
   }
 
   function closeBookmarkMenu() {
     bookmarkMenu.hidden = true;
     selectedBookmarkId = null;
+  }
+
+  function closeTransientMenus() {
+    // Keep hide behavior predictable: when the launcher tucks away,
+    // all floating menus should close too so no orphan UI remains on screen.
+    closeOverflowMenu();
+    closeBookmarkMenu();
   }
 
   function clearTopHideTimer() {
@@ -149,9 +158,13 @@
     if (!isTopAutoHideEnabled()) {
       return;
     }
-    if (root.matches(':hover') || !overflowMenu.hidden || !bookmarkMenu.hidden) {
+    if (root.matches(':hover')) {
       return;
     }
+
+    // Close popovers before collapsing so hidden state is visually complete.
+    closeTransientMenus();
+
     applyCollapseTransitionSpeed(settings.hideSpeedMs);
     root.dataset.collapsed = 'true';
 
@@ -711,10 +724,13 @@
 
 
   overflowBtn.addEventListener('click', () => {
+    // Prevent document-level handlers from immediately undoing the toggle click.
     if (overflowMenu.hidden) {
       populateOverflowMenu(lastHiddenBookmarks);
       overflowMenu.hidden = false;
       overflowBtn.setAttribute('aria-expanded', 'true');
+      overflowBtn.title = 'Hide hidden bookmarks';
+      overflowBtn.setAttribute('aria-label', 'Hide hidden bookmarks dropdown');
     } else {
       closeOverflowMenu();
     }
@@ -888,8 +904,7 @@
 
   document.addEventListener('click', (event) => {
     if (!root.contains(event.target)) {
-      closeOverflowMenu();
-      closeBookmarkMenu();
+      closeTransientMenus();
       root.classList.remove('is-drop-target');
       clearReorderMarkers();
     }
@@ -897,8 +912,7 @@
 
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {
-      closeOverflowMenu();
-      closeBookmarkMenu();
+      closeTransientMenus();
       root.classList.remove('is-drop-target');
       clearReorderMarkers();
     }
@@ -947,7 +961,7 @@
       settings = normalizeSettings(changes[TOOLBAR_SETTINGS_KEY].newValue);
       applySettingsToLayout();
       ensureMountedAtPosition();
-      closeBookmarkMenu();
+      closeTransientMenus();
       layoutToolbar();
 
       if (isTopAutoHideEnabled()) {

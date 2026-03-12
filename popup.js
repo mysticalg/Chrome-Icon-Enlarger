@@ -59,6 +59,36 @@ const DEFAULT_TOOLBAR_SETTINGS = {
 
 let currentToolbarSettings = { ...DEFAULT_TOOLBAR_SETTINGS };
 
+
+function isInjectableTabUrl(url) {
+  // Restrict injection to normal web pages; Chrome internal URLs reject script injection.
+  return /^https?:\/\//i.test(String(url || ''));
+}
+
+async function ensureToolbarInjectedOnActiveTab() {
+  if (!globalThis.chrome?.tabs?.query || !globalThis.chrome?.scripting) {
+    return;
+  }
+
+  const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!activeTab?.id || !isInjectableTabUrl(activeTab.url)) {
+    showStatus('Open a normal web page, then reopen this popup to show the toolbar.');
+    return;
+  }
+
+  // Inject CSS first so the toolbar can render without a flash of unstyled content.
+  await chrome.scripting.insertCSS({
+    target: { tabId: activeTab.id },
+    files: ['content-toolbar.css'],
+  });
+
+  // Execute toolbar logic on demand to avoid global <all_urls> host permissions.
+  await chrome.scripting.executeScript({
+    target: { tabId: activeTab.id },
+    files: ['content-toolbar.js'],
+  });
+}
+
 function showStatus(message) {
   statusEl.textContent = message;
 }
@@ -289,7 +319,7 @@ async function persistToolbarSettings() {
 
   currentToolbarSettings = settings;
   await chrome.storage.sync.set({ [TOOLBAR_SETTINGS_KEY]: settings });
-  showSettingsStatus('Saved. Settings apply immediately on open pages.');
+  showSettingsStatus('Saved. Reopen this popup to apply updates on the active tab.');
 }
 
 async function initSettings() {
@@ -303,7 +333,7 @@ async function initSettings() {
   currentToolbarSettings = settings;
   applySettingsToForm(settings);
   showSettingsStatus('Settings saved automatically.');
-  showStatus('Configure toolbar behavior and hover animation.');
+  showStatus('Configure toolbar behavior and load the toolbar on the active tab.');
 
   const onChange = () => {
     updateSpacerControlState();
@@ -348,6 +378,7 @@ async function initSettings() {
 async function init() {
   try {
     await initSettings();
+    await ensureToolbarInjectedOnActiveTab();
   } catch (error) {
     console.error(error);
     showStatus('Could not load toolbar settings.');

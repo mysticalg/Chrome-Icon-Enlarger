@@ -54,6 +54,12 @@
   opacity: 0.95;
 }
 
+/* Ensure auto-hidden launcher does not leave popover remnants visible. */
+.bf-toolbar[data-collapsed='true'] .bf-toolbar__overflow-menu,
+.bf-toolbar[data-collapsed='true'] .bf-toolbar__bookmark-menu {
+  display: none !important;
+}
+
 .bf-toolbar[data-position='bottom'] {
   top: auto;
   bottom: 0;
@@ -212,6 +218,12 @@
   background: rgba(15, 23, 42, 0.985);
   box-shadow: 0 10px 24px rgba(2, 6, 23, 0.55);
   overflow: hidden;
+}
+
+/* Defend against host-page CSS that may override default [hidden] rendering. */
+.bf-toolbar__overflow-menu[hidden],
+.bf-toolbar__bookmark-menu[hidden] {
+  display: none !important;
 }
 
 /* Icon-only overflow panel remains compact and removes internal scrollbars. */
