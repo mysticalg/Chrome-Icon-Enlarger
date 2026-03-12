@@ -2,6 +2,8 @@ const statusEl = document.getElementById('status');
 const listEl = document.getElementById('bookmarkList');
 const scaleSelectEl = document.getElementById('scaleSelect');
 const iconOnlyToggleEl = document.getElementById('iconOnlyToggle');
+const autoHideTopToggleEl = document.getElementById('autoHideTopToggle');
+const hoverGrowIconsToggleEl = document.getElementById('hoverGrowIconsToggle');
 const positionSelectEl = document.getElementById('positionSelect');
 const openModeSelectEl = document.getElementById('openModeSelect');
 const settingsStatusEl = document.getElementById('settingsStatus');
@@ -12,6 +14,8 @@ const DEFAULT_TOOLBAR_SETTINGS = {
   iconOnly: true,
   position: 'top',
   openMode: 'current',
+  autoHideTop: true,
+  hoverGrowIcons: false,
 };
 
 let currentToolbarSettings = { ...DEFAULT_TOOLBAR_SETTINGS };
@@ -90,6 +94,8 @@ function showSettingsStatus(message) {
 function applySettingsToForm(settings) {
   scaleSelectEl.value = String(settings.scale);
   iconOnlyToggleEl.checked = Boolean(settings.iconOnly);
+  autoHideTopToggleEl.checked = Boolean(settings.autoHideTop);
+  hoverGrowIconsToggleEl.checked = Boolean(settings.hoverGrowIcons);
   positionSelectEl.value = settings.position;
   openModeSelectEl.value = settings.openMode || 'current';
 }
@@ -105,6 +111,9 @@ async function readToolbarSettings() {
     merged.openMode = DEFAULT_TOOLBAR_SETTINGS.openMode;
   }
 
+  merged.autoHideTop = Boolean(merged.autoHideTop);
+  merged.hoverGrowIcons = Boolean(merged.hoverGrowIcons);
+
   return merged;
 }
 
@@ -112,6 +121,8 @@ async function persistToolbarSettings() {
   const settings = {
     scale: scaleSelectEl.value,
     iconOnly: iconOnlyToggleEl.checked,
+    autoHideTop: autoHideTopToggleEl.checked,
+    hoverGrowIcons: hoverGrowIconsToggleEl.checked,
     position: positionSelectEl.value,
     openMode: openModeSelectEl.value,
   };
@@ -141,6 +152,8 @@ async function initSettings() {
 
   scaleSelectEl.addEventListener('change', onChange);
   iconOnlyToggleEl.addEventListener('change', onChange);
+  autoHideTopToggleEl.addEventListener('change', onChange);
+  hoverGrowIconsToggleEl.addEventListener('change', onChange);
   positionSelectEl.addEventListener('change', onChange);
   openModeSelectEl.addEventListener('change', onChange);
 }

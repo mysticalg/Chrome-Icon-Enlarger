@@ -20,6 +20,8 @@
     iconOnly: true,
     position: 'top',
     openMode: 'current',
+    autoHideTop: true,
+    hoverGrowIcons: false,
   };
 
   if (document.getElementById(ROOT_ID)) {
@@ -31,6 +33,11 @@
   root.className = 'bf-toolbar';
   root.setAttribute('aria-label', 'Big Favorites in-page toolbar');
 
+  // Spacer keeps page content from being hidden under the fixed top toolbar.
+  const topSpacer = document.createElement('div');
+  topSpacer.className = 'bf-toolbar-spacer';
+  topSpacer.setAttribute('aria-hidden', 'true');
+
   const list = document.createElement('nav');
   list.className = 'bf-toolbar__list';
   list.setAttribute('aria-label', 'Bookmark shortcuts');
@@ -41,6 +48,13 @@
   overflowBtn.textContent = '»';
   overflowBtn.title = 'Show hidden bookmarks';
   overflowBtn.setAttribute('aria-label', 'Show hidden bookmarks in dropdown');
+
+  const addCurrentBtn = document.createElement('button');
+  addCurrentBtn.className = 'bf-toolbar__add-btn';
+  addCurrentBtn.type = 'button';
+  addCurrentBtn.textContent = '+';
+  addCurrentBtn.title = 'Add this page to the bookmarks toolbar';
+  addCurrentBtn.setAttribute('aria-label', 'Add current page to bookmarks toolbar');
 
   const overflowMenu = document.createElement('div');
   overflowMenu.className = 'bf-toolbar__overflow-menu';
@@ -71,6 +85,7 @@
   let settings = { ...DEFAULT_SETTINGS };
   let selectedBookmarkId = null;
   let draggedBookmarkId = null;
+  let topHideTimer = null;
 
   function closeOverflowMenu() {
     overflowMenu.hidden = true;
@@ -80,6 +95,45 @@
   function closeBookmarkMenu() {
     bookmarkMenu.hidden = true;
     selectedBookmarkId = null;
+  }
+
+  function clearTopHideTimer() {
+    if (topHideTimer) {
+      clearTimeout(topHideTimer);
+      topHideTimer = null;
+    }
+  }
+
+  function isTopAutoHideEnabled() {
+    return settings.position === 'top' && settings.autoHideTop;
+  }
+
+  function showToolbarAnimated() {
+    if (!isTopAutoHideEnabled()) {
+      return;
+    }
+    clearTopHideTimer();
+    root.dataset.collapsed = 'false';
+  }
+
+  function hideToolbarAnimated() {
+    if (!isTopAutoHideEnabled()) {
+      return;
+    }
+    if (root.matches(':hover') || !overflowMenu.hidden || !bookmarkMenu.hidden) {
+      return;
+    }
+    root.dataset.collapsed = 'true';
+  }
+
+  function scheduleToolbarHide(delayMs = 700) {
+    if (!isTopAutoHideEnabled()) {
+      return;
+    }
+    clearTopHideTimer();
+    topHideTimer = setTimeout(() => {
+      hideToolbarAnimated();
+    }, delayMs);
   }
 
   async function requestBookmarks() {
@@ -309,6 +363,8 @@
     if (!['current', 'new'].includes(normalized.openMode)) {
       normalized.openMode = DEFAULT_SETTINGS.openMode;
     }
+    normalized.autoHideTop = Boolean(normalized.autoHideTop);
+    normalized.hoverGrowIcons = Boolean(normalized.hoverGrowIcons);
     return normalized;
   }
 
@@ -329,11 +385,30 @@
     root.style.setProperty('--bf-slot-size', `${slotPx}px`);
     root.dataset.iconOnly = String(settings.iconOnly);
     root.dataset.position = settings.position;
+    root.dataset.hoverGrowIcons = String(settings.hoverGrowIcons);
+
+    if (settings.position === 'top') {
+      topSpacer.style.height = `${slotPx + 10}px`;
+    } else {
+      topSpacer.style.height = '0px';
+    }
+
+    if (isTopAutoHideEnabled()) {
+      root.dataset.collapsed = 'true';
+    } else {
+      root.dataset.collapsed = 'false';
+    }
   }
 
   function mountToolbar() {
     const mountTarget = document.body || document.documentElement;
     if (!mountTarget) {
+      return;
+    }
+
+    if (settings.position === 'top') {
+      mountTarget.prepend(topSpacer);
+      topSpacer.before(root);
       return;
     }
 
@@ -356,11 +431,26 @@
     }
 
     if (settings.position === 'bottom' && root !== parent.lastElementChild) {
+      topSpacer.remove();
       parent.append(root);
+    }
+
+    if (settings.position === 'top') {
+      if (!topSpacer.isConnected) {
+        parent.prepend(topSpacer);
+      }
+      if (root.previousElementSibling !== topSpacer) {
+        topSpacer.after(root);
+      }
+      return;
     }
 
     if (settings.position !== 'bottom' && root !== parent.firstElementChild) {
       parent.prepend(root);
+    }
+
+    if (topSpacer.isConnected) {
+      topSpacer.remove();
     }
   }
 
@@ -406,6 +496,9 @@
       children.push(overflowBtn);
     }
 
+    // Keep the "add current page" action pinned at the far end of the row.
+    children.push(addCurrentBtn);
+
     list.replaceChildren(...children);
   }
 
@@ -417,6 +510,26 @@
       overflowBtn.setAttribute('aria-expanded', 'true');
     } else {
       closeOverflowMenu();
+    }
+  });
+
+  addCurrentBtn.addEventListener('click', async () => {
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: 'ADD_TOOLBAR_BOOKMARK',
+        url: window.location.href,
+        title: document.title,
+      });
+
+      if (!response?.ok) {
+        throw new Error(response?.error || 'Could not add current page');
+      }
+
+      await refreshBookmarks();
+      showToolbarAnimated();
+      scheduleToolbarHide();
+    } catch (error) {
+      console.error(error);
     }
   });
 
@@ -480,6 +593,14 @@
     draggedBookmarkId = null;
     root.classList.remove('is-drop-target');
     clearReorderMarkers();
+  });
+
+  root.addEventListener('mouseenter', () => {
+    showToolbarAnimated();
+  });
+
+  root.addEventListener('mouseleave', () => {
+    scheduleToolbarHide(800);
   });
 
   root.addEventListener('dragover', (event) => {
@@ -584,6 +705,32 @@
     layoutToolbar();
   });
 
+  // Auto-reveal top launcher when pointer nears page top.
+  document.addEventListener('mousemove', (event) => {
+    if (!isTopAutoHideEnabled()) {
+      return;
+    }
+
+    if (event.clientY <= 24) {
+      showToolbarAnimated();
+      return;
+    }
+
+    if (!root.matches(':hover')) {
+      scheduleToolbarHide(450);
+    }
+  }, { passive: true });
+
+  window.addEventListener('scroll', () => {
+    if (!isTopAutoHideEnabled()) {
+      return;
+    }
+
+    if (!root.matches(':hover')) {
+      scheduleToolbarHide(300);
+    }
+  }, { passive: true });
+
   if (chrome.storage?.onChanged) {
     chrome.storage.onChanged.addListener((changes, area) => {
       if (area !== 'sync' || !changes[TOOLBAR_SETTINGS_KEY]) {
@@ -595,6 +742,12 @@
       ensureMountedAtPosition();
       closeBookmarkMenu();
       layoutToolbar();
+
+      if (isTopAutoHideEnabled()) {
+        scheduleToolbarHide(600);
+      } else {
+        clearTopHideTimer();
+      }
     });
   }
 
