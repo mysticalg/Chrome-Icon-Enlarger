@@ -1,8 +1,10 @@
 /**
  * Lightweight in-page favorites toolbar.
  *
- * This appears at the top of web pages, which makes it effectively sit
- * right under Chrome's native toolbar/bookmarks bar area.
+ * Settings are read from chrome.storage.sync so users can control:
+ * - icon scale (2x/4x/8x)
+ * - icon-only mode (force no text)
+ * - toolbar position (top/bottom/left/right)
  */
 (() => {
   if (window.top !== window) {
@@ -10,14 +12,19 @@
   }
 
   const ROOT_ID = 'big-favorites-inline-toolbar';
+  const TOOLBAR_SETTINGS_KEY = 'toolbarSettings';
+  const MAX_ITEMS = 40;
+  const BASE_ICON = 16;
+  const SLOT_GAP = 6;
+  const DEFAULT_SETTINGS = {
+    scale: '2',
+    iconOnly: true,
+    position: 'top',
+  };
 
   if (document.getElementById(ROOT_ID)) {
     return;
   }
-
-  const MAX_ITEMS = 40;
-  const SLOT_WIDTH = 34;
-  const SLOT_GAP = 6;
 
   const root = document.createElement('aside');
   root.id = ROOT_ID;
@@ -30,7 +37,7 @@
   const title = document.createElement('strong');
   title.className = 'bf-toolbar__title';
   title.textContent = '⭐ Big Favorites';
-  title.title = 'Fast bookmark launcher pinned to top of page';
+  title.title = 'Fast bookmark launcher pinned to page';
 
   const list = document.createElement('nav');
   list.className = 'bf-toolbar__list';
@@ -61,26 +68,7 @@
 
   let allBookmarks = [];
   let lastHiddenBookmarks = [];
-
-  /**
-   * Insert the toolbar into normal page flow so it pushes content down
-   * rather than floating over (and obscuring) page headers.
-   */
-  function mountToolbar() {
-    const mountTarget = document.body || document.documentElement;
-
-    if (!mountTarget) {
-      return;
-    }
-
-    mountTarget.prepend(root);
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', mountToolbar, { once: true });
-  } else {
-    mountToolbar();
-  }
+  let settings = { ...DEFAULT_SETTINGS };
 
   function closeOverflowMenu() {
     overflowMenu.hidden = true;
@@ -96,39 +84,6 @@
       closeOverflowMenu();
     }
   }
-
-  collapseBtn.addEventListener('click', () => {
-    const collapsed = root.classList.toggle('is-collapsed');
-    refreshToggleButton(collapsed);
-    layoutToolbar();
-  });
-
-  overflowBtn.addEventListener('click', () => {
-    if (overflowMenu.hidden) {
-      populateOverflowMenu(lastHiddenBookmarks);
-      overflowMenu.hidden = false;
-      overflowBtn.setAttribute('aria-expanded', 'true');
-    } else {
-      closeOverflowMenu();
-    }
-  });
-
-  document.addEventListener('click', (event) => {
-    if (!root.contains(event.target)) {
-      closeOverflowMenu();
-    }
-  });
-
-  document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape') {
-      closeOverflowMenu();
-    }
-  });
-
-  window.addEventListener('resize', () => {
-    closeOverflowMenu();
-    layoutToolbar();
-  });
 
   function faviconUrl(pageUrl, size = 32) {
     const favicon = new URL(chrome.runtime.getURL('/_favicon/'));
@@ -155,13 +110,9 @@
     return favicon.toString();
   }
 
-  /**
-   * Try multiple icon sources so pages with missing `_favicon` results
-   * still show their real brand icon whenever possible.
-   */
   function applyFaviconWithFallback(img, pageUrl) {
     const candidates = [
-      faviconUrl(pageUrl, 32),
+      faviconUrl(pageUrl, 64),
       secondaryFaviconUrl(pageUrl, 64),
       fallbackIconDataUrl(),
     ];
@@ -195,8 +146,12 @@
     img.decoding = 'async';
     applyFaviconWithFallback(img, bookmark.url);
 
-    // Icon-only row for density, with tooltip/ARIA carrying bookmark details.
-    link.append(img);
+    const text = document.createElement('span');
+    text.className = 'bf-toolbar__text';
+    text.textContent = label;
+
+    // Keep icon compact while preserving optional label mode.
+    link.append(img, text);
     return link;
   }
 
@@ -237,19 +192,85 @@
     overflowMenu.replaceChildren(...hiddenBookmarks.map(renderOverflowItem));
   }
 
-  /**
-   * Compute how many fixed-width icon slots fit in the current toolbar width.
-   */
-  function maxSlotsForWidth(width) {
-    return Math.max(0, Math.floor((width + SLOT_GAP) / (SLOT_WIDTH + SLOT_GAP)));
+  function normalizeSettings(raw) {
+    const normalized = { ...DEFAULT_SETTINGS, ...(raw || {}) };
+    if (!['2', '4', '8'].includes(String(normalized.scale))) {
+      normalized.scale = DEFAULT_SETTINGS.scale;
+    }
+    normalized.scale = String(normalized.scale);
+    normalized.iconOnly = Boolean(normalized.iconOnly);
+    if (!['top', 'bottom', 'left', 'right'].includes(normalized.position)) {
+      normalized.position = DEFAULT_SETTINGS.position;
+    }
+    return normalized;
   }
 
-  /**
-   * Layout strategy:
-   * - Never show scrollbar in the icon row.
-   * - Render what fits as fixed-width icons.
-   * - Put overflowed bookmarks behind the trailing » dropdown button.
-   */
+  async function readSettings() {
+    try {
+      const storage = await chrome.storage.sync.get(TOOLBAR_SETTINGS_KEY);
+      return normalizeSettings(storage?.[TOOLBAR_SETTINGS_KEY]);
+    } catch {
+      return { ...DEFAULT_SETTINGS };
+    }
+  }
+
+  function applySettingsToLayout() {
+    const iconPx = BASE_ICON * Number(settings.scale);
+    const slotPx = settings.iconOnly ? iconPx + 10 : Math.max(iconPx + 76, 120);
+
+    root.style.setProperty('--bf-icon-size', `${iconPx}px`);
+    root.style.setProperty('--bf-slot-size', `${slotPx}px`);
+    root.dataset.iconOnly = String(settings.iconOnly);
+    root.dataset.position = settings.position;
+  }
+
+  function mountToolbar() {
+    const mountTarget = document.body || document.documentElement;
+    if (!mountTarget) {
+      return;
+    }
+
+    if (settings.position === 'bottom') {
+      mountTarget.append(root);
+    } else {
+      mountTarget.prepend(root);
+    }
+  }
+
+  function ensureMountedAtPosition() {
+    if (!root.isConnected) {
+      mountToolbar();
+      return;
+    }
+
+    const parent = document.body || document.documentElement;
+    if (!parent) {
+      return;
+    }
+
+    if (settings.position === 'bottom' && root !== parent.lastElementChild) {
+      parent.append(root);
+    }
+
+    if (settings.position !== 'bottom' && root !== parent.firstElementChild) {
+      parent.prepend(root);
+    }
+  }
+
+  function slotSize() {
+    return Number.parseFloat(getComputedStyle(root).getPropertyValue('--bf-slot-size')) || 34;
+  }
+
+  function maxSlotsForWidth(width) {
+    const tile = slotSize();
+    return Math.max(0, Math.floor((width + SLOT_GAP) / (tile + SLOT_GAP)));
+  }
+
+  function maxSlotsForHeight(height) {
+    const tile = slotSize();
+    return Math.max(0, Math.floor((height + SLOT_GAP) / (tile + SLOT_GAP)));
+  }
+
   function layoutToolbar() {
     closeOverflowMenu();
 
@@ -263,15 +284,13 @@
       return;
     }
 
-    const availableWidth = list.clientWidth;
-    const totalSlots = maxSlotsForWidth(availableWidth);
+    const vertical = settings.position === 'left' || settings.position === 'right';
+    const totalSlots = vertical
+      ? maxSlotsForHeight(list.clientHeight)
+      : maxSlotsForWidth(list.clientWidth);
 
-    // First reserve one slot for hide/show.
     let visibleCount = Math.min(allBookmarks.length, Math.max(0, totalSlots - 1));
-
-    // If not all bookmarks fit, reserve one additional slot for the » overflow control.
-    const needsOverflow = visibleCount < allBookmarks.length;
-    if (needsOverflow) {
+    if (visibleCount < allBookmarks.length) {
       visibleCount = Math.min(allBookmarks.length, Math.max(0, totalSlots - 2));
     }
 
@@ -288,10 +307,63 @@
     list.replaceChildren(...children);
   }
 
+  collapseBtn.addEventListener('click', () => {
+    const collapsed = root.classList.toggle('is-collapsed');
+    refreshToggleButton(collapsed);
+    layoutToolbar();
+  });
+
+  overflowBtn.addEventListener('click', () => {
+    if (overflowMenu.hidden) {
+      populateOverflowMenu(lastHiddenBookmarks);
+      overflowMenu.hidden = false;
+      overflowBtn.setAttribute('aria-expanded', 'true');
+    } else {
+      closeOverflowMenu();
+    }
+  });
+
+  document.addEventListener('click', (event) => {
+    if (!root.contains(event.target)) {
+      closeOverflowMenu();
+    }
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      closeOverflowMenu();
+    }
+  });
+
+  window.addEventListener('resize', () => {
+    layoutToolbar();
+  });
+
+  if (chrome.storage?.onChanged) {
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (area !== 'sync' || !changes[TOOLBAR_SETTINGS_KEY]) {
+        return;
+      }
+
+      settings = normalizeSettings(changes[TOOLBAR_SETTINGS_KEY].newValue);
+      applySettingsToLayout();
+      ensureMountedAtPosition();
+      layoutToolbar();
+    });
+  }
+
   async function init() {
+    settings = await readSettings();
+    applySettingsToLayout();
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', mountToolbar, { once: true });
+    } else {
+      mountToolbar();
+    }
+
     try {
       const response = await chrome.runtime.sendMessage({ type: 'GET_TOOLBAR_BOOKMARKS' });
-
       if (!response?.ok) {
         throw new Error(response?.error || 'Unknown bookmark loading error');
       }

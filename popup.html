@@ -14,21 +14,45 @@
           Big Favorites
         </h1>
         <p class="subtitle" title="This popup mirrors bookmarks from the browser's bookmarks toolbar.">
-          2× icon shortcuts for your bookmarks bar
+          Bookmark launcher + toolbar settings
         </p>
       </header>
+
+      <section class="settings" aria-label="Toolbar settings">
+        <h2 class="settings__title">Toolbar options</h2>
+
+        <label class="field">
+          <span class="field__label" title="Controls icon size in the in-page launcher.">Icon size scale</span>
+          <select id="scaleSelect" class="field__control" title="Choose 2×, 4×, or 8× icon size scale">
+            <option value="2">2×</option>
+            <option value="4">4×</option>
+            <option value="8">8×</option>
+          </select>
+        </label>
+
+        <label class="field field--inline" title="Show only icons in the in-page launcher.">
+          <input id="iconOnlyToggle" type="checkbox" />
+          <span class="field__label">Force icon-only (no text)</span>
+        </label>
+
+        <label class="field">
+          <span class="field__label" title="Choose where the in-page launcher appears.">Launcher position</span>
+          <select id="positionSelect" class="field__control" title="Set launcher position to top, bottom, left, or right">
+            <option value="top">Top of page</option>
+            <option value="bottom">Bottom of page</option>
+            <option value="left">Left of page</option>
+            <option value="right">Right of page</option>
+          </select>
+        </label>
+
+        <p id="settingsStatus" class="settings__status" role="status">Loading settings…</p>
+      </section>
 
       <section id="status" class="status" role="status" title="Helpful loading and error messages appear here.">
         Loading bookmarks…
       </section>
 
       <ul id="bookmarkList" class="bookmark-grid" aria-label="Bookmarks toolbar items"></ul>
-
-      <footer class="app__footer">
-        <small title="Chrome does not let extensions directly resize the native toolbar UI.">
-          Tip: Use this popup for the full launcher, plus the new top-of-page toolbar on websites for quick access.
-        </small>
-      </footer>
     </main>
 
     <script src="popup.js" type="module"></script>
