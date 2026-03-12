@@ -36,6 +36,13 @@
     barWidthPercent: 100,
     // Anchor position when width is less than 100% for top/bottom bars.
     barAlign: 'left',
+    // Optional shell polish controls.
+    barCornerRadius: 0,
+    barShadowStrength: 0,
+    // Top auto-hide timing controls.
+    autoHideDelayMs: 700,
+    showSpeedMs: 180,
+    hideSpeedMs: 180,
   };
 
   if (document.getElementById(ROOT_ID)) {
@@ -122,11 +129,18 @@
     return settings.position === 'top' && settings.autoHideTop;
   }
 
+  function applyCollapseTransitionSpeed(durationMs) {
+    const safeDuration = Math.max(0, Number(durationMs) || 0);
+    root.style.setProperty('--bf-collapse-duration', `${safeDuration}ms`);
+    topSpacer.style.setProperty('--bf-collapse-duration', `${safeDuration}ms`);
+  }
+
   function showToolbarAnimated() {
     if (!isTopAutoHideEnabled()) {
       return;
     }
     clearTopHideTimer();
+    applyCollapseTransitionSpeed(settings.showSpeedMs);
     root.dataset.collapsed = 'false';
     topSpacer.dataset.collapsed = settings.noTopSpacer ? 'true' : 'false';
   }
@@ -138,6 +152,7 @@
     if (root.matches(':hover') || !overflowMenu.hidden || !bookmarkMenu.hidden) {
       return;
     }
+    applyCollapseTransitionSpeed(settings.hideSpeedMs);
     root.dataset.collapsed = 'true';
 
     // Optional modes: keep spacer for stable layout or hide completely in overlay mode.
@@ -148,14 +163,14 @@
     topSpacer.dataset.collapsed = settings.keepSpacerOnAutoHide ? 'false' : 'true';
   }
 
-  function scheduleToolbarHide(delayMs = 700) {
+  function scheduleToolbarHide(delayMs = settings.autoHideDelayMs) {
     if (!isTopAutoHideEnabled()) {
       return;
     }
     clearTopHideTimer();
     topHideTimer = setTimeout(() => {
       hideToolbarAnimated();
-    }, delayMs);
+    }, Math.max(0, Number(delayMs) || 0));
   }
 
   async function requestBookmarks() {
@@ -423,6 +438,31 @@
       ? barAlign
       : DEFAULT_SETTINGS.barAlign;
 
+    const barCornerRadius = Number.parseInt(normalized.barCornerRadius, 10);
+    normalized.barCornerRadius = Number.isFinite(barCornerRadius)
+      ? Math.min(24, Math.max(0, barCornerRadius))
+      : DEFAULT_SETTINGS.barCornerRadius;
+
+    const barShadowStrength = Number.parseInt(normalized.barShadowStrength, 10);
+    normalized.barShadowStrength = Number.isFinite(barShadowStrength)
+      ? Math.min(100, Math.max(0, barShadowStrength))
+      : DEFAULT_SETTINGS.barShadowStrength;
+
+    const autoHideDelayMs = Number.parseInt(normalized.autoHideDelayMs, 10);
+    normalized.autoHideDelayMs = Number.isFinite(autoHideDelayMs)
+      ? Math.min(2000, Math.max(0, autoHideDelayMs))
+      : DEFAULT_SETTINGS.autoHideDelayMs;
+
+    const showSpeedMs = Number.parseInt(normalized.showSpeedMs, 10);
+    normalized.showSpeedMs = Number.isFinite(showSpeedMs)
+      ? Math.min(2000, Math.max(0, showSpeedMs))
+      : DEFAULT_SETTINGS.showSpeedMs;
+
+    const hideSpeedMs = Number.parseInt(normalized.hideSpeedMs, 10);
+    normalized.hideSpeedMs = Number.isFinite(hideSpeedMs)
+      ? Math.min(2000, Math.max(0, hideSpeedMs))
+      : DEFAULT_SETTINGS.hideSpeedMs;
+
     // Backward compatibility: migrate legacy transparent toggle value to 0% opacity
     // unless explicit opacity was already saved.
     if (raw?.transparentBackground === true && raw?.barBackgroundOpacity == null) {
@@ -475,6 +515,9 @@
     root.style.setProperty('--bf-hover-grow-scale', String(settings.hoverGrowScale));
     root.style.setProperty('--bf-hover-grow-duration', `${settings.hoverGrowSpeed}ms`);
 
+    // Keep default transition speed in sync even before first show/hide cycle.
+    applyCollapseTransitionSpeed(settings.hideSpeedMs);
+
     // Width slider applies to top/bottom bars only. Side rails keep natural width.
     if (settings.position === 'top' || settings.position === 'bottom') {
       // Use !important so host-page CSS cannot force the bar back to full width.
@@ -513,7 +556,28 @@
     root.style.background = `rgba(${shellRgb.r}, ${shellRgb.g}, ${shellRgb.b}, ${shellAlpha.toFixed(2)})`;
     root.style.borderColor = `rgba(148, 163, 184, ${Math.min(0.45, shellAlpha).toFixed(2)})`;
     root.style.backdropFilter = shellAlpha <= 0.01 ? 'none' : 'blur(8px)';
-    root.style.boxShadow = shellAlpha <= 0.01 ? 'none' : '';
+
+    // Rounded edge + shadow controls for shell polish.
+    const edgeRadius = Math.max(0, Number(settings.barCornerRadius) || 0);
+    if (settings.position === 'top') {
+      root.style.borderRadius = `0 0 ${edgeRadius}px ${edgeRadius}px`;
+    } else if (settings.position === 'bottom') {
+      root.style.borderRadius = `${edgeRadius}px ${edgeRadius}px 0 0`;
+    } else if (settings.position === 'left') {
+      root.style.borderRadius = `0 ${edgeRadius}px ${edgeRadius}px 0`;
+    } else {
+      root.style.borderRadius = `${edgeRadius}px 0 0 ${edgeRadius}px`;
+    }
+
+    const shadowStrength = (Math.max(0, Number(settings.barShadowStrength) || 0) / 100);
+    if (shadowStrength <= 0) {
+      root.style.boxShadow = 'none';
+    } else {
+      const y = (2 + (8 * shadowStrength)).toFixed(1);
+      const blur = (8 + (20 * shadowStrength)).toFixed(1);
+      const alpha = (0.15 + (0.45 * shadowStrength)).toFixed(2);
+      root.style.boxShadow = `0 ${y}px ${blur}px rgba(2, 6, 23, ${alpha})`;
+    }
 
     const spacerHeight = settings.noTopSpacer ? 0 : slotPx + 10;
     if (settings.position === 'top') {
@@ -742,7 +806,7 @@
   });
 
   root.addEventListener('mouseleave', () => {
-    scheduleToolbarHide(800);
+    scheduleToolbarHide();
   });
 
   root.addEventListener('dragover', (event) => {
@@ -859,7 +923,7 @@
     }
 
     if (!root.matches(':hover')) {
-      scheduleToolbarHide(450);
+      scheduleToolbarHide();
     }
   }, { passive: true });
 
@@ -869,7 +933,7 @@
     }
 
     if (!root.matches(':hover')) {
-      scheduleToolbarHide(300);
+      scheduleToolbarHide();
     }
   }, { passive: true });
 
@@ -886,7 +950,7 @@
       layoutToolbar();
 
       if (isTopAutoHideEnabled()) {
-        scheduleToolbarHide(600);
+        scheduleToolbarHide();
       } else {
         clearTopHideTimer();
       }

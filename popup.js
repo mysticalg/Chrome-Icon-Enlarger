@@ -11,6 +11,16 @@ const barBackgroundColorInputEl = document.getElementById('barBackgroundColorInp
 const barWidthPercentRangeEl = document.getElementById('barWidthPercentRange');
 const barWidthPercentValueEl = document.getElementById('barWidthPercentValue');
 const barAlignSelectEl = document.getElementById('barAlignSelect');
+const barCornerRadiusRangeEl = document.getElementById('barCornerRadiusRange');
+const barCornerRadiusValueEl = document.getElementById('barCornerRadiusValue');
+const barShadowStrengthRangeEl = document.getElementById('barShadowStrengthRange');
+const barShadowStrengthValueEl = document.getElementById('barShadowStrengthValue');
+const autoHideDelayRangeEl = document.getElementById('autoHideDelayRange');
+const autoHideDelayValueEl = document.getElementById('autoHideDelayValue');
+const showSpeedRangeEl = document.getElementById('showSpeedRange');
+const showSpeedValueEl = document.getElementById('showSpeedValue');
+const hideSpeedRangeEl = document.getElementById('hideSpeedRange');
+const hideSpeedValueEl = document.getElementById('hideSpeedValue');
 const hoverGrowScaleSelectEl = document.getElementById('hoverGrowScaleSelect');
 const hoverGrowSpeedSelectEl = document.getElementById('hoverGrowSpeedSelect');
 const positionSelectEl = document.getElementById('positionSelect');
@@ -38,6 +48,13 @@ const DEFAULT_TOOLBAR_SETTINGS = {
   barWidthPercent: 100,
   // Anchor position when width is less than 100% for top/bottom bars.
   barAlign: 'left',
+  // Optional shell polish controls.
+  barCornerRadius: 0,
+  barShadowStrength: 0,
+  // Top auto-hide timing controls.
+  autoHideDelayMs: 700,
+  showSpeedMs: 180,
+  hideSpeedMs: 180,
 };
 
 let currentToolbarSettings = { ...DEFAULT_TOOLBAR_SETTINGS };
@@ -79,7 +96,6 @@ function normalizeHexColor(value) {
   return /^#[0-9A-Fa-f]{6}$/.test(text) ? text.toLowerCase() : DEFAULT_TOOLBAR_SETTINGS.barBackgroundColor;
 }
 
-
 function normalizeBarWidthPercent(value) {
   const numeric = Number.parseInt(value, 10);
   if (!Number.isFinite(numeric)) {
@@ -88,24 +104,61 @@ function normalizeBarWidthPercent(value) {
   return Math.min(100, Math.max(25, numeric));
 }
 
-
 function normalizeBarAlign(value) {
   const align = String(value || '').toLowerCase();
   return ['left', 'center', 'right'].includes(align) ? align : DEFAULT_TOOLBAR_SETTINGS.barAlign;
 }
 
-function updateBarBackgroundPreview() {
+function normalizeBarCornerRadius(value) {
+  const numeric = Number.parseInt(value, 10);
+  if (!Number.isFinite(numeric)) {
+    return DEFAULT_TOOLBAR_SETTINGS.barCornerRadius;
+  }
+  return Math.min(24, Math.max(0, numeric));
+}
+
+function normalizePercent(value, fallback) {
+  const numeric = Number.parseInt(value, 10);
+  if (!Number.isFinite(numeric)) {
+    return fallback;
+  }
+  return Math.min(100, Math.max(0, numeric));
+}
+
+function normalizeAnimationMs(value, fallback) {
+  const numeric = Number.parseInt(value, 10);
+  if (!Number.isFinite(numeric)) {
+    return fallback;
+  }
+  return Math.min(2000, Math.max(0, numeric));
+}
+
+function updateRangeValueLabels() {
   const opacity = normalizeBarBackgroundOpacity(barBackgroundOpacityRangeEl.value);
   barBackgroundOpacityValueEl.textContent = `${opacity}%`;
 
   const widthPercent = normalizeBarWidthPercent(barWidthPercentRangeEl.value);
   barWidthPercentValueEl.textContent = `${widthPercent}%`;
 
+  const cornerPx = normalizeBarCornerRadius(barCornerRadiusRangeEl.value);
+  barCornerRadiusValueEl.textContent = `${cornerPx}px`;
+
+  const shadowStrength = normalizePercent(barShadowStrengthRangeEl.value, DEFAULT_TOOLBAR_SETTINGS.barShadowStrength);
+  barShadowStrengthValueEl.textContent = `${shadowStrength}%`;
+
+  const hideDelayMs = normalizeAnimationMs(autoHideDelayRangeEl.value, DEFAULT_TOOLBAR_SETTINGS.autoHideDelayMs);
+  autoHideDelayValueEl.textContent = `${hideDelayMs}ms`;
+
+  const showSpeedMs = normalizeAnimationMs(showSpeedRangeEl.value, DEFAULT_TOOLBAR_SETTINGS.showSpeedMs);
+  showSpeedValueEl.textContent = `${showSpeedMs}ms`;
+
+  const hideSpeedMs = normalizeAnimationMs(hideSpeedRangeEl.value, DEFAULT_TOOLBAR_SETTINGS.hideSpeedMs);
+  hideSpeedValueEl.textContent = `${hideSpeedMs}ms`;
+
   // Keep color input value normalized for stable storage values.
   const color = normalizeHexColor(barBackgroundColorInputEl.value);
   barBackgroundColorInputEl.value = color;
 }
-
 
 function updateBarGeometryControlState() {
   // Width/alignment controls apply only to top/bottom launcher modes.
@@ -119,6 +172,22 @@ function updateBarGeometryControlState() {
 
   barWidthPercentRangeEl.title = hint || 'Set top/bottom launcher width from 25% to 100% of the page width.';
   barAlignSelectEl.title = hint || 'Align top/bottom bar to left, center, or right.';
+}
+
+function updateAutoHideTimingControlState() {
+  // Auto-hide timing controls only matter when top auto-hide behavior is active.
+  const autoHideTimingEnabled = positionSelectEl.value === 'top' && autoHideTopToggleEl.checked;
+  autoHideDelayRangeEl.disabled = !autoHideTimingEnabled;
+  showSpeedRangeEl.disabled = !autoHideTimingEnabled;
+  hideSpeedRangeEl.disabled = !autoHideTimingEnabled;
+
+  const hint = autoHideTimingEnabled
+    ? ''
+    : 'Only available when launcher position is Top and auto-hide is enabled.';
+
+  autoHideDelayRangeEl.title = hint || 'Delay before top auto-hide starts after pointer leaves the launcher.';
+  showSpeedRangeEl.title = hint || 'Animation speed when the top launcher reveals.';
+  hideSpeedRangeEl.title = hint || 'Animation speed when the top launcher hides.';
 }
 
 function updateSpacerControlState() {
@@ -141,12 +210,18 @@ function applySettingsToForm(settings) {
   barBackgroundColorInputEl.value = settings.barBackgroundColor;
   barWidthPercentRangeEl.value = String(settings.barWidthPercent);
   barAlignSelectEl.value = normalizeBarAlign(settings.barAlign);
+  barCornerRadiusRangeEl.value = String(settings.barCornerRadius);
+  barShadowStrengthRangeEl.value = String(settings.barShadowStrength);
+  autoHideDelayRangeEl.value = String(settings.autoHideDelayMs);
+  showSpeedRangeEl.value = String(settings.showSpeedMs);
+  hideSpeedRangeEl.value = String(settings.hideSpeedMs);
   hoverGrowScaleSelectEl.value = Number(settings.hoverGrowScale).toFixed(2);
   hoverGrowSpeedSelectEl.value = String(settings.hoverGrowSpeed);
   positionSelectEl.value = settings.position;
   openModeSelectEl.value = settings.openMode || 'current';
-  updateBarBackgroundPreview();
+  updateRangeValueLabels();
   updateBarGeometryControlState();
+  updateAutoHideTimingControlState();
   updateSpacerControlState();
 }
 
@@ -172,6 +247,11 @@ async function readToolbarSettings() {
   merged.barBackgroundOpacity = normalizeBarBackgroundOpacity(merged.barBackgroundOpacity);
   merged.barWidthPercent = normalizeBarWidthPercent(merged.barWidthPercent);
   merged.barAlign = normalizeBarAlign(merged.barAlign);
+  merged.barCornerRadius = normalizeBarCornerRadius(merged.barCornerRadius);
+  merged.barShadowStrength = normalizePercent(merged.barShadowStrength, DEFAULT_TOOLBAR_SETTINGS.barShadowStrength);
+  merged.autoHideDelayMs = normalizeAnimationMs(merged.autoHideDelayMs, DEFAULT_TOOLBAR_SETTINGS.autoHideDelayMs);
+  merged.showSpeedMs = normalizeAnimationMs(merged.showSpeedMs, DEFAULT_TOOLBAR_SETTINGS.showSpeedMs);
+  merged.hideSpeedMs = normalizeAnimationMs(merged.hideSpeedMs, DEFAULT_TOOLBAR_SETTINGS.hideSpeedMs);
 
   // Backward compatibility: old "transparentBackground" becomes 0% opacity
   // if no explicit opacity was saved yet.
@@ -198,6 +278,11 @@ async function persistToolbarSettings() {
     barBackgroundColor: normalizeHexColor(barBackgroundColorInputEl.value),
     barWidthPercent: normalizeBarWidthPercent(barWidthPercentRangeEl.value),
     barAlign: normalizeBarAlign(barAlignSelectEl.value),
+    barCornerRadius: normalizeBarCornerRadius(barCornerRadiusRangeEl.value),
+    barShadowStrength: normalizePercent(barShadowStrengthRangeEl.value, DEFAULT_TOOLBAR_SETTINGS.barShadowStrength),
+    autoHideDelayMs: normalizeAnimationMs(autoHideDelayRangeEl.value, DEFAULT_TOOLBAR_SETTINGS.autoHideDelayMs),
+    showSpeedMs: normalizeAnimationMs(showSpeedRangeEl.value, DEFAULT_TOOLBAR_SETTINGS.showSpeedMs),
+    hideSpeedMs: normalizeAnimationMs(hideSpeedRangeEl.value, DEFAULT_TOOLBAR_SETTINGS.hideSpeedMs),
     position: positionSelectEl.value,
     openMode: openModeSelectEl.value,
   };
@@ -223,7 +308,8 @@ async function initSettings() {
   const onChange = () => {
     updateSpacerControlState();
     updateBarGeometryControlState();
-    updateBarBackgroundPreview();
+    updateAutoHideTimingControlState();
+    updateRangeValueLabels();
     persistToolbarSettings().catch((error) => {
       console.error(error);
       showSettingsStatus('Could not save settings.');
@@ -243,6 +329,16 @@ async function initSettings() {
   barWidthPercentRangeEl.addEventListener('input', onChange);
   barWidthPercentRangeEl.addEventListener('change', onChange);
   barAlignSelectEl.addEventListener('change', onChange);
+  barCornerRadiusRangeEl.addEventListener('input', onChange);
+  barCornerRadiusRangeEl.addEventListener('change', onChange);
+  barShadowStrengthRangeEl.addEventListener('input', onChange);
+  barShadowStrengthRangeEl.addEventListener('change', onChange);
+  autoHideDelayRangeEl.addEventListener('input', onChange);
+  autoHideDelayRangeEl.addEventListener('change', onChange);
+  showSpeedRangeEl.addEventListener('input', onChange);
+  showSpeedRangeEl.addEventListener('change', onChange);
+  hideSpeedRangeEl.addEventListener('input', onChange);
+  hideSpeedRangeEl.addEventListener('change', onChange);
   hoverGrowScaleSelectEl.addEventListener('change', onChange);
   hoverGrowSpeedSelectEl.addEventListener('change', onChange);
   positionSelectEl.addEventListener('change', onChange);

@@ -106,6 +106,77 @@
           </select>
         </label>
 
+
+        <label class="field" title="Round only the exposed bottom edge corners of the top bar (or top edge for bottom bar).">
+          <span class="field__label">◜ Bar corner roundness <span id="barCornerRadiusValue">0px</span></span>
+          <input
+            id="barCornerRadiusRange"
+            class="field__control field__control--range"
+            type="range"
+            min="0"
+            max="24"
+            step="1"
+            value="0"
+            aria-label="Bar corner roundness"
+          />
+        </label>
+
+        <label class="field" title="Add a drop shadow under the bar shell. 0 means no shadow.">
+          <span class="field__label">🌑 Bar drop shadow <span id="barShadowStrengthValue">0%</span></span>
+          <input
+            id="barShadowStrengthRange"
+            class="field__control field__control--range"
+            type="range"
+            min="0"
+            max="100"
+            step="5"
+            value="0"
+            aria-label="Bar drop shadow strength"
+          />
+        </label>
+
+        <label class="field" title="Delay before top auto-hide starts after pointer leaves the launcher.">
+          <span class="field__label">⏱ Auto-hide delay <span id="autoHideDelayValue">700ms</span></span>
+          <input
+            id="autoHideDelayRange"
+            class="field__control field__control--range"
+            type="range"
+            min="0"
+            max="2000"
+            step="50"
+            value="700"
+            aria-label="Auto-hide delay in milliseconds"
+          />
+        </label>
+
+        <label class="field" title="Animation speed when the top launcher reveals. 0ms opens instantly.">
+          <span class="field__label">🚀 Show speed <span id="showSpeedValue">180ms</span></span>
+          <input
+            id="showSpeedRange"
+            class="field__control field__control--range"
+            type="range"
+            min="0"
+            max="2000"
+            step="50"
+            value="180"
+            aria-label="Show animation speed in milliseconds"
+          />
+        </label>
+
+        <label class="field" title="Animation speed when the top launcher hides. 0ms closes instantly.">
+          <span class="field__label">🏁 Close speed <span id="hideSpeedValue">180ms</span></span>
+          <input
+            id="hideSpeedRange"
+            class="field__control field__control--range"
+            type="range"
+            min="0"
+            max="2000"
+            step="50"
+            value="180"
+            aria-label="Hide animation speed in milliseconds"
+          />
+        </label>
+
         <label class="field" title="Choose how large icons become while hovering. Toolbar tiles remain fixed size.">
           <span class="field__label">Hover grow size</span>
           <select id="hoverGrowScaleSelect" class="field__control" title="Set icon hover growth scale">
