@@ -15,7 +15,8 @@ This extension provides a **large-icon launcher** for the bookmarks toolbar (fav
 ## What it does
 
 - Reads top-level items from your **Bookmarks Toolbar**.
-- Renders each with a large favicon tile and tooltip.
+- Renders each with a large favicon tile and tooltip using Chrome's supported extension favicon endpoint (`/_favicon/`).
+- Falls back to a local icon when a site has no favicon.
 - Opens links in a new tab.
 
 ## Files

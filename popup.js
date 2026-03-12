@@ -2,11 +2,31 @@ const statusEl = document.getElementById('status');
 const listEl = document.getElementById('bookmarkList');
 
 /**
- * Build the favicon URL using Chrome's favicon service.
- * This keeps icon loading fast and avoids external requests.
+ * Build a favicon URL that is allowed inside extension pages.
+ *
+ * Why this endpoint?
+ * - chrome://favicon2 cannot be relied on from MV3 extension popups.
+ * - /_favicon/ is the supported extension endpoint when "favicon" permission is granted.
  */
-function faviconUrl(pageUrl) {
-  return `chrome://favicon2/?size=64&scaleFactor=1x&pageUrl=${encodeURIComponent(pageUrl)}`;
+function faviconUrl(pageUrl, size = 32) {
+  const favicon = new URL(chrome.runtime.getURL('/_favicon/'));
+  favicon.searchParams.set('pageUrl', pageUrl);
+  favicon.searchParams.set('size', String(size));
+  return favicon.toString();
+}
+
+/**
+ * Local lightweight SVG fallback so users never see broken-image placeholders.
+ */
+function fallbackIconDataUrl() {
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" fill="none">
+      <rect x="1" y="1" width="30" height="30" rx="7" fill="#243348" stroke="#486283"/>
+      <path d="M8 17.5h16M8 12.5h16M8 22.5h10" stroke="#9FB7D6" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+  `.trim();
+
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
 }
 
 /**
@@ -28,11 +48,16 @@ function renderBookmark(bookmark) {
   img.alt = '';
   img.loading = 'lazy';
   img.decoding = 'async';
-  img.src = faviconUrl(bookmark.url);
+  img.src = faviconUrl(bookmark.url, 32);
+
+  // If a site has no favicon (or blocks retrieval), switch to a clean local fallback icon.
+  img.addEventListener('error', () => {
+    img.src = fallbackIconDataUrl();
+  }, { once: true });
 
   const title = document.createElement('span');
   title.className = 'bookmark-title';
-  title.textContent = bookmark.title || bookmark.url;
+  title.textContent = bookmark.title || new URL(bookmark.url).hostname;
 
   a.append(img, title);
   li.append(a);
@@ -54,7 +79,7 @@ function showStatus(message) {
 async function init() {
   try {
     // Demo fallback helps local preview/screenshot in non-extension environments.
-    if (!globalThis.chrome?.bookmarks) {
+    if (!globalThis.chrome?.bookmarks || !globalThis.chrome?.runtime) {
       const demo = [
         { title: 'GitHub', url: 'https://github.com' },
         { title: 'YouTube', url: 'https://youtube.com' },
