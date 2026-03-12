@@ -2,237 +2,36 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <!-- Use a fixed baseline viewport width so extension UI is not auto-scaled into a thin strip. -->
-    <meta name="viewport" content="width=380, initial-scale=1.0" />
+    <meta name="viewport" content="width=420, initial-scale=1.0" />
     <title>Big Favorites</title>
     <link rel="stylesheet" href="popup.css" />
   </head>
   <body>
     <main class="app" aria-live="polite">
       <header class="app__header">
-        <h1>
-          <span aria-hidden="true">⭐</span>
-          Big Favorites
-        </h1>
-        <p class="subtitle" title="Configure the in-page favorites toolbar behavior and animation.">
-          In-page toolbar settings
+        <h1><span aria-hidden="true">⭐</span> Big Favorites</h1>
+        <p class="subtitle" title="This version stays in the popup so it can be published without host permissions.">
+          Popup-only launcher (no host permissions)
         </p>
       </header>
 
-      <section class="settings" aria-label="Toolbar settings">
-        <h2 class="settings__title">Toolbar options</h2>
-
-        <label class="field">
-          <span class="field__label" title="Controls icon size in the in-page launcher.">Icon size scale</span>
-          <select id="scaleSelect" class="field__control" title="Choose 2×, 4×, or 8× icon size scale">
-            <option value="2">2×</option>
-            <option value="4">4×</option>
-            <option value="8">8×</option>
-          </select>
-        </label>
-
-        <label class="field field--inline" title="Show only icons in the in-page launcher.">
-          <input id="iconOnlyToggle" type="checkbox" />
-          <span class="field__label">Force icon-only (no text)</span>
-        </label>
-
-        <label class="field field--inline" title="Auto-hide the top launcher until your mouse nears the top edge.">
-          <input id="autoHideTopToggle" type="checkbox" />
-          <span class="field__label">Auto-hide top launcher (edge reveal)</span>
-        </label>
-
-        <label class="field field--inline" title="Keep the top spacer height while the toolbar auto-hides so page content does not move.">
-          <input id="keepSpacerOnAutoHideToggle" type="checkbox" />
-          <span class="field__label">Keep spacer while auto-hidden</span>
-        </label>
-
-        <label class="field field--inline" title="Disable the top spacer entirely so the launcher overlays page content with no reserved gap.">
-          <input id="noTopSpacerToggle" type="checkbox" />
-          <span class="field__label">🧱 No top spacer (overlay mode)</span>
-        </label>
-
-        <label class="field field--inline" title="Icons grow slightly on hover while tile size stays fixed.">
-          <input id="hoverGrowIconsToggle" type="checkbox" />
-          <span class="field__label">Animate icon hover grow</span>
-        </label>
-
-        <label class="field" title="Adjust toolbar shell opacity from fully transparent (0%) to fully visible (100%).">
-          <span class="field__label">🎚 Bar background opacity <span id="barBackgroundOpacityValue">95%</span></span>
-          <input
-            id="barBackgroundOpacityRange"
-            class="field__control field__control--range"
-            type="range"
-            min="0"
-            max="100"
-            step="5"
-            value="95"
-            aria-label="Bar background opacity"
-          />
-        </label>
-
-        <label class="field" title="Pick the launcher bar background color.">
-          <span class="field__label">🎨 Bar background color</span>
-          <input
-            id="barBackgroundColorInput"
-            class="field__control field__control--color"
-            type="color"
-            value="#0f172a"
-            aria-label="Bar background color"
-          />
-        </label>
-
-
-        <label class="field" title="Set top/bottom launcher width from 25% to 100% of the page width.">
-          <span class="field__label">↔️ Bar width <span id="barWidthPercentValue">100%</span></span>
-          <input
-            id="barWidthPercentRange"
-            class="field__control field__control--range"
-            type="range"
-            min="25"
-            max="100"
-            step="5"
-            value="100"
-            aria-label="Bar width percentage"
-          />
-        </label>
-
-
-        <label class="field" title="Choose where the top or bottom bar is anchored when width is less than 100%.">
-          <span class="field__label">📐 Bar alignment</span>
-          <select id="barAlignSelect" class="field__control" title="Align top/bottom bar to left, center, or right">
-            <option value="left">Left</option>
-            <option value="center">Center</option>
-            <option value="right">Right</option>
-          </select>
-        </label>
-
-
-        <label class="field" title="Round only the exposed bottom edge corners of the top bar (or top edge for bottom bar).">
-          <span class="field__label">◜ Bar corner roundness <span id="barCornerRadiusValue">0px</span></span>
-          <input
-            id="barCornerRadiusRange"
-            class="field__control field__control--range"
-            type="range"
-            min="0"
-            max="24"
-            step="1"
-            value="0"
-            aria-label="Bar corner roundness"
-          />
-        </label>
-
-        <label class="field" title="Add a drop shadow under the bar shell. 0 means no shadow.">
-          <span class="field__label">🌑 Bar drop shadow <span id="barShadowStrengthValue">0%</span></span>
-          <input
-            id="barShadowStrengthRange"
-            class="field__control field__control--range"
-            type="range"
-            min="0"
-            max="100"
-            step="5"
-            value="0"
-            aria-label="Bar drop shadow strength"
-          />
-        </label>
-
-        <label class="field" title="Delay before top auto-hide starts after pointer leaves the launcher.">
-          <span class="field__label">⏱ Auto-hide delay <span id="autoHideDelayValue">700ms</span></span>
-          <input
-            id="autoHideDelayRange"
-            class="field__control field__control--range"
-            type="range"
-            min="0"
-            max="2000"
-            step="50"
-            value="700"
-            aria-label="Auto-hide delay in milliseconds"
-          />
-        </label>
-
-        <label class="field" title="Animation speed when the top launcher reveals. 0ms opens instantly.">
-          <span class="field__label">🚀 Show speed <span id="showSpeedValue">180ms</span></span>
-          <input
-            id="showSpeedRange"
-            class="field__control field__control--range"
-            type="range"
-            min="0"
-            max="2000"
-            step="50"
-            value="180"
-            aria-label="Show animation speed in milliseconds"
-          />
-        </label>
-
-        <label class="field" title="Animation speed when the top launcher hides. 0ms closes instantly.">
-          <span class="field__label">🏁 Close speed <span id="hideSpeedValue">180ms</span></span>
-          <input
-            id="hideSpeedRange"
-            class="field__control field__control--range"
-            type="range"
-            min="0"
-            max="2000"
-            step="50"
-            value="180"
-            aria-label="Hide animation speed in milliseconds"
-          />
-        </label>
-
-        <label class="field" title="Choose how large icons become while hovering. Toolbar tiles remain fixed size.">
-          <span class="field__label">Hover grow size</span>
-          <select id="hoverGrowScaleSelect" class="field__control" title="Set icon hover growth scale">
-            <option value="1.10">Subtle (1.10×)</option>
-            <option value="1.20">Balanced (1.20×)</option>
-            <option value="1.30">Strong (1.30×)</option>
-          </select>
-        </label>
-
-        <label class="field" title="Choose how quickly the hover animation expands and settles.">
-          <span class="field__label">Hover grow speed</span>
-          <select id="hoverGrowSpeedSelect" class="field__control" title="Set icon hover animation speed">
-            <option value="180">Fast (180ms)</option>
-            <option value="240">Balanced (240ms)</option>
-            <option value="320">Smooth (320ms)</option>
-            <option value="420">Slow pop (420ms)</option>
-          </select>
-        </label>
-
-        <label class="field">
-          <span class="field__label" title="Choose where the in-page launcher appears.">Launcher position</span>
-          <select id="positionSelect" class="field__control" title="Set launcher position to top, bottom, left, or right">
-            <option value="top">Top of page</option>
-            <option value="bottom">Bottom of page</option>
-            <option value="left">Left of page</option>
-            <option value="right">Right of page</option>
-          </select>
-        </label>
-
-
-        <label class="field">
-          <span class="field__label" title="Choose how launcher clicks open bookmarks.">Open bookmarks in</span>
-          <select id="openModeSelect" class="field__control" title="Open bookmarks in current tab or new tab">
+      <section class="toolbar" aria-label="Launcher controls">
+        <label class="field" title="Choose where bookmark clicks open.">
+          <span class="field__label">🧭 Open bookmarks in</span>
+          <select id="openModeSelect" class="field__control">
             <option value="current">Current tab</option>
             <option value="new">New tab</option>
           </select>
         </label>
 
-        <p id="settingsStatus" class="settings__status" role="status">Loading settings…</p>
+        <button id="refreshButton" class="refresh" type="button" title="Reload bookmarks now">
+          🔄 Refresh
+        </button>
       </section>
 
-      <section id="status" class="status" role="status" title="Helpful settings and environment messages appear here.">
-        Ready.
-      </section>
+      <section id="status" class="status" role="status">Loading bookmarks…</section>
 
-      <footer class="app__footer">
-        <a
-          class="support-link"
-          href="https://buymeacoffee.com/dhooksterm"
-          target="_blank"
-          rel="noopener noreferrer"
-          title="Support Big Favorites development on Buy Me a Coffee"
-        >
-          ☕ Help & Support: Buy me a coffee
-        </a>
-      </footer>
+      <section id="bookmarksGrid" class="grid" aria-label="Bookmarks toolbar shortcuts"></section>
     </main>
 
     <script src="popup.js" type="module"></script>
