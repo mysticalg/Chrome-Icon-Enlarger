@@ -102,6 +102,8 @@ body {
   height: 32px;
   border-radius: 6px;
   flex: 0 0 32px;
+  object-fit: contain;
+  background: color-mix(in oklab, var(--surface) 55%, var(--border));
 }
 
 .bookmark-title {
