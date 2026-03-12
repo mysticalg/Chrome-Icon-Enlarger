@@ -50,7 +50,26 @@
   list.setAttribute('aria-label', 'Bookmark shortcuts');
 
   root.append(header, status, list);
-  document.documentElement.append(root);
+
+  /**
+   * Insert the toolbar into normal page flow so it pushes content down
+   * rather than floating over (and obscuring) page headers.
+   */
+  function mountToolbar() {
+    const mountTarget = document.body || document.documentElement;
+
+    if (!mountTarget) {
+      return;
+    }
+
+    mountTarget.prepend(root);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', mountToolbar, { once: true });
+  } else {
+    mountToolbar();
+  }
 
   collapseBtn.addEventListener('click', () => {
     const collapsed = root.classList.toggle('is-collapsed');
@@ -76,6 +95,35 @@
     return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
   }
 
+  function secondaryFaviconUrl(pageUrl, size = 64) {
+    const favicon = new URL('https://www.google.com/s2/favicons');
+    favicon.searchParams.set('domain_url', pageUrl);
+    favicon.searchParams.set('sz', String(size));
+    return favicon.toString();
+  }
+
+  /**
+   * Try multiple icon sources so pages with missing `_favicon` results
+   * still show their real brand icon whenever possible.
+   */
+  function applyFaviconWithFallback(img, pageUrl) {
+    const candidates = [
+      faviconUrl(pageUrl, 32),
+      secondaryFaviconUrl(pageUrl, 64),
+      fallbackIconDataUrl(),
+    ];
+
+    let index = 0;
+    img.src = candidates[index];
+
+    img.addEventListener('error', () => {
+      index += 1;
+      if (index < candidates.length) {
+        img.src = candidates[index];
+      }
+    });
+  }
+
   function renderBookmark(bookmark) {
     const link = document.createElement('a');
     link.className = 'bf-toolbar__item';
@@ -91,10 +139,7 @@
     img.alt = '';
     img.loading = 'lazy';
     img.decoding = 'async';
-    img.src = faviconUrl(bookmark.url, 32);
-    img.addEventListener('error', () => {
-      img.src = fallbackIconDataUrl();
-    }, { once: true });
+    applyFaviconWithFallback(img, bookmark.url);
 
     const text = document.createElement('span');
     text.className = 'bf-toolbar__text';
