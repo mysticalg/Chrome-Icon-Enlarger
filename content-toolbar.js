@@ -186,6 +186,16 @@
     }, Math.max(0, Number(delayMs) || 0));
   }
 
+  function revealToolbarAfterInjection() {
+    // On-demand injection can feel like "nothing happened" when top auto-hide starts collapsed.
+    // Briefly reveal after injection so users instantly see where the launcher lives.
+    if (!isTopAutoHideEnabled()) {
+      return;
+    }
+    showToolbarAnimated();
+    scheduleToolbarHide(Math.max(settings.autoHideDelayMs, 1200));
+  }
+
   async function requestBookmarks() {
     let response;
 
@@ -984,9 +994,11 @@
 
     try {
       await refreshBookmarks();
+      revealToolbarAfterInjection();
     } catch (error) {
       console.error(error);
       list.replaceChildren(renderEmptyState('Could not load toolbar bookmarks in page.'));
+      revealToolbarAfterInjection();
     }
   }
 

@@ -67,26 +67,34 @@ function isInjectableTabUrl(url) {
 
 async function ensureToolbarInjectedOnActiveTab() {
   if (!globalThis.chrome?.tabs?.query || !globalThis.chrome?.scripting) {
+    showStatus('Injection APIs are unavailable in this environment.');
     return;
   }
 
   const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!activeTab?.id || !isInjectableTabUrl(activeTab.url)) {
-    showStatus('Open a normal web page, then reopen this popup to show the toolbar.');
+    showStatus('Open a normal web page tab (http/https), then reopen this popup.');
     return;
   }
 
-  // Inject CSS first so the toolbar can render without a flash of unstyled content.
-  await chrome.scripting.insertCSS({
-    target: { tabId: activeTab.id },
-    files: ['content-toolbar.css'],
-  });
+  try {
+    // Inject CSS first so the toolbar can render without a flash of unstyled content.
+    await chrome.scripting.insertCSS({
+      target: { tabId: activeTab.id },
+      files: ['content-toolbar.css'],
+    });
 
-  // Execute toolbar logic on demand to avoid global <all_urls> host permissions.
-  await chrome.scripting.executeScript({
-    target: { tabId: activeTab.id },
-    files: ['content-toolbar.js'],
-  });
+    // Execute toolbar logic on demand to avoid global <all_urls> host permissions.
+    await chrome.scripting.executeScript({
+      target: { tabId: activeTab.id },
+      files: ['content-toolbar.js'],
+    });
+
+    showStatus('Toolbar injected on this tab. Move to the top edge if auto-hide is enabled.');
+  } catch (error) {
+    console.error('Toolbar injection failed:', error);
+    showStatus('Could not inject toolbar on this tab. Try reloading the page, then open popup again.');
+  }
 }
 
 function showStatus(message) {
@@ -378,12 +386,14 @@ async function initSettings() {
 async function init() {
   try {
     await initSettings();
-    await ensureToolbarInjectedOnActiveTab();
   } catch (error) {
     console.error(error);
     showStatus('Could not load toolbar settings.');
     showSettingsStatus('Could not load toolbar settings.');
+    return;
   }
+
+  await ensureToolbarInjectedOnActiveTab();
 }
 
 init();
