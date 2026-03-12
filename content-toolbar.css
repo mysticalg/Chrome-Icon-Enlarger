@@ -52,7 +52,6 @@
 }
 
 .bf-toolbar__item,
-.bf-toolbar__toggle,
 .bf-toolbar__overflow-btn {
   display: inline-flex;
   align-items: center;
@@ -81,21 +80,18 @@
 .bf-toolbar__item { text-decoration: none; }
 
 .bf-toolbar__item:hover,
-.bf-toolbar__toggle:hover,
 .bf-toolbar__overflow-btn:hover,
 .bf-toolbar__overflow-item:hover {
   background: rgba(51, 65, 85, 0.55);
 }
 
 .bf-toolbar__item:focus-visible,
-.bf-toolbar__toggle:focus-visible,
 .bf-toolbar__overflow-btn:focus-visible,
 .bf-toolbar__overflow-item:focus-visible {
   outline: 2px solid rgba(147, 197, 253, 0.95);
   outline-offset: 1px;
 }
 
-.bf-toolbar__toggle,
 .bf-toolbar__overflow-btn {
   cursor: pointer;
   appearance: none;

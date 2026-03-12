@@ -41,13 +41,6 @@
   overflowBtn.title = 'Show hidden bookmarks';
   overflowBtn.setAttribute('aria-label', 'Show hidden bookmarks in dropdown');
 
-  const collapseBtn = document.createElement('button');
-  collapseBtn.className = 'bf-toolbar__toggle';
-  collapseBtn.type = 'button';
-  collapseBtn.textContent = '👁';
-  collapseBtn.title = 'Hide bookmark icons';
-  collapseBtn.setAttribute('aria-label', 'Hide bookmark icons');
-
   const overflowMenu = document.createElement('div');
   overflowMenu.className = 'bf-toolbar__overflow-menu';
   overflowMenu.hidden = true;
@@ -66,15 +59,6 @@
     overflowBtn.setAttribute('aria-expanded', 'false');
   }
 
-  function refreshToggleButton(collapsed) {
-    collapseBtn.textContent = collapsed ? '↺' : '👁';
-    collapseBtn.title = collapsed ? 'Show bookmark icons' : 'Hide bookmark icons';
-    collapseBtn.setAttribute('aria-label', collapseBtn.title);
-
-    if (collapsed) {
-      closeOverflowMenu();
-    }
-  }
 
   function faviconUrl(pageUrl, size = 32) {
     const favicon = new URL(chrome.runtime.getURL('/_favicon/'));
@@ -272,12 +256,7 @@
     closeOverflowMenu();
 
     if (allBookmarks.length === 0) {
-      list.replaceChildren(renderEmptyState('No toolbar bookmarks found.'), collapseBtn);
-      return;
-    }
-
-    if (root.classList.contains('is-collapsed')) {
-      list.replaceChildren(collapseBtn);
+      list.replaceChildren(renderEmptyState('No toolbar bookmarks found.'));
       return;
     }
 
@@ -286,9 +265,10 @@
       ? maxSlotsForHeight(list.clientHeight)
       : maxSlotsForWidth(list.clientWidth);
 
-    let visibleCount = Math.min(allBookmarks.length, Math.max(0, totalSlots - 1));
+    let visibleCount = Math.min(allBookmarks.length, Math.max(0, totalSlots));
     if (visibleCount < allBookmarks.length) {
-      visibleCount = Math.min(allBookmarks.length, Math.max(0, totalSlots - 2));
+      // Reserve one slot for the overflow menu trigger when needed.
+      visibleCount = Math.min(allBookmarks.length, Math.max(0, totalSlots - 1));
     }
 
     const visible = allBookmarks.slice(0, visibleCount);
@@ -299,16 +279,10 @@
     if (hidden.length > 0) {
       children.push(overflowBtn);
     }
-    children.push(collapseBtn);
 
     list.replaceChildren(...children);
   }
 
-  collapseBtn.addEventListener('click', () => {
-    const collapsed = root.classList.toggle('is-collapsed');
-    refreshToggleButton(collapsed);
-    layoutToolbar();
-  });
 
   overflowBtn.addEventListener('click', () => {
     if (overflowMenu.hidden) {
@@ -372,7 +346,7 @@
       layoutToolbar();
     } catch (error) {
       console.error(error);
-      list.replaceChildren(renderEmptyState('Could not load toolbar bookmarks in page.'), collapseBtn);
+      list.replaceChildren(renderEmptyState('Could not load toolbar bookmarks in page.'));
     }
   }
 
