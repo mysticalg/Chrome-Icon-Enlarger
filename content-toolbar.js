@@ -34,6 +34,8 @@
     barBackgroundColor: '#0f172a',
     // Top/bottom launcher width (% of page width).
     barWidthPercent: 100,
+    // Anchor position when width is less than 100% for top/bottom bars.
+    barAlign: 'left',
   };
 
   if (document.getElementById(ROOT_ID)) {
@@ -416,6 +418,11 @@
       ? Math.min(100, Math.max(25, widthPercent))
       : DEFAULT_SETTINGS.barWidthPercent;
 
+    const barAlign = String(normalized.barAlign || '').toLowerCase();
+    normalized.barAlign = ['left', 'center', 'right'].includes(barAlign)
+      ? barAlign
+      : DEFAULT_SETTINGS.barAlign;
+
     // Backward compatibility: migrate legacy transparent toggle value to 0% opacity
     // unless explicit opacity was already saved.
     if (raw?.transparentBackground === true && raw?.barBackgroundOpacity == null) {
@@ -473,13 +480,31 @@
       // Use !important so host-page CSS cannot force the bar back to full width.
       root.style.setProperty('width', `${settings.barWidthPercent}%`, 'important');
       root.style.setProperty('max-width', '100vw', 'important');
-      root.style.setProperty('left', '0', 'important');
-      root.style.setProperty('right', 'auto', 'important');
+
+      // Let users choose how reduced-width bars anchor across the page.
+      if (settings.barAlign === 'center') {
+        root.style.setProperty('left', '0', 'important');
+        root.style.setProperty('right', '0', 'important');
+        root.style.setProperty('margin-left', 'auto', 'important');
+        root.style.setProperty('margin-right', 'auto', 'important');
+      } else if (settings.barAlign === 'right') {
+        root.style.setProperty('left', 'auto', 'important');
+        root.style.setProperty('right', '0', 'important');
+        root.style.setProperty('margin-left', '0', 'important');
+        root.style.setProperty('margin-right', '0', 'important');
+      } else {
+        root.style.setProperty('left', '0', 'important');
+        root.style.setProperty('right', 'auto', 'important');
+        root.style.setProperty('margin-left', '0', 'important');
+        root.style.setProperty('margin-right', '0', 'important');
+      }
     } else {
       root.style.removeProperty('width');
       root.style.removeProperty('max-width');
       root.style.removeProperty('left');
       root.style.removeProperty('right');
+      root.style.removeProperty('margin-left');
+      root.style.removeProperty('margin-right');
     }
 
     // Apply user-tunable shell color + opacity inline so page CSS cannot override.

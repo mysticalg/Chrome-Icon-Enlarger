@@ -10,6 +10,7 @@ const barBackgroundOpacityValueEl = document.getElementById('barBackgroundOpacit
 const barBackgroundColorInputEl = document.getElementById('barBackgroundColorInput');
 const barWidthPercentRangeEl = document.getElementById('barWidthPercentRange');
 const barWidthPercentValueEl = document.getElementById('barWidthPercentValue');
+const barAlignSelectEl = document.getElementById('barAlignSelect');
 const hoverGrowScaleSelectEl = document.getElementById('hoverGrowScaleSelect');
 const hoverGrowSpeedSelectEl = document.getElementById('hoverGrowSpeedSelect');
 const positionSelectEl = document.getElementById('positionSelect');
@@ -35,6 +36,8 @@ const DEFAULT_TOOLBAR_SETTINGS = {
   barBackgroundColor: '#0f172a',
   // Top/bottom launcher width (% of page width).
   barWidthPercent: 100,
+  // Anchor position when width is less than 100% for top/bottom bars.
+  barAlign: 'left',
 };
 
 let currentToolbarSettings = { ...DEFAULT_TOOLBAR_SETTINGS };
@@ -85,6 +88,12 @@ function normalizeBarWidthPercent(value) {
   return Math.min(100, Math.max(25, numeric));
 }
 
+
+function normalizeBarAlign(value) {
+  const align = String(value || '').toLowerCase();
+  return ['left', 'center', 'right'].includes(align) ? align : DEFAULT_TOOLBAR_SETTINGS.barAlign;
+}
+
 function updateBarBackgroundPreview() {
   const opacity = normalizeBarBackgroundOpacity(barBackgroundOpacityRangeEl.value);
   barBackgroundOpacityValueEl.textContent = `${opacity}%`;
@@ -95,6 +104,21 @@ function updateBarBackgroundPreview() {
   // Keep color input value normalized for stable storage values.
   const color = normalizeHexColor(barBackgroundColorInputEl.value);
   barBackgroundColorInputEl.value = color;
+}
+
+
+function updateBarGeometryControlState() {
+  // Width/alignment controls apply only to top/bottom launcher modes.
+  const supportsHorizontalBarSizing = ['top', 'bottom'].includes(positionSelectEl.value);
+  barWidthPercentRangeEl.disabled = !supportsHorizontalBarSizing;
+  barAlignSelectEl.disabled = !supportsHorizontalBarSizing;
+
+  const hint = supportsHorizontalBarSizing
+    ? ''
+    : 'Only available for top/bottom launcher positions.';
+
+  barWidthPercentRangeEl.title = hint || 'Set top/bottom launcher width from 25% to 100% of the page width.';
+  barAlignSelectEl.title = hint || 'Align top/bottom bar to left, center, or right.';
 }
 
 function updateSpacerControlState() {
@@ -116,11 +140,13 @@ function applySettingsToForm(settings) {
   barBackgroundOpacityRangeEl.value = String(settings.barBackgroundOpacity);
   barBackgroundColorInputEl.value = settings.barBackgroundColor;
   barWidthPercentRangeEl.value = String(settings.barWidthPercent);
+  barAlignSelectEl.value = normalizeBarAlign(settings.barAlign);
   hoverGrowScaleSelectEl.value = Number(settings.hoverGrowScale).toFixed(2);
   hoverGrowSpeedSelectEl.value = String(settings.hoverGrowSpeed);
   positionSelectEl.value = settings.position;
   openModeSelectEl.value = settings.openMode || 'current';
   updateBarBackgroundPreview();
+  updateBarGeometryControlState();
   updateSpacerControlState();
 }
 
@@ -145,6 +171,7 @@ async function readToolbarSettings() {
   merged.barBackgroundColor = normalizeHexColor(merged.barBackgroundColor);
   merged.barBackgroundOpacity = normalizeBarBackgroundOpacity(merged.barBackgroundOpacity);
   merged.barWidthPercent = normalizeBarWidthPercent(merged.barWidthPercent);
+  merged.barAlign = normalizeBarAlign(merged.barAlign);
 
   // Backward compatibility: old "transparentBackground" becomes 0% opacity
   // if no explicit opacity was saved yet.
@@ -170,6 +197,7 @@ async function persistToolbarSettings() {
     barBackgroundOpacity: normalizeBarBackgroundOpacity(barBackgroundOpacityRangeEl.value),
     barBackgroundColor: normalizeHexColor(barBackgroundColorInputEl.value),
     barWidthPercent: normalizeBarWidthPercent(barWidthPercentRangeEl.value),
+    barAlign: normalizeBarAlign(barAlignSelectEl.value),
     position: positionSelectEl.value,
     openMode: openModeSelectEl.value,
   };
@@ -194,6 +222,7 @@ async function initSettings() {
 
   const onChange = () => {
     updateSpacerControlState();
+    updateBarGeometryControlState();
     updateBarBackgroundPreview();
     persistToolbarSettings().catch((error) => {
       console.error(error);
@@ -213,6 +242,7 @@ async function initSettings() {
   barBackgroundColorInputEl.addEventListener('change', onChange);
   barWidthPercentRangeEl.addEventListener('input', onChange);
   barWidthPercentRangeEl.addEventListener('change', onChange);
+  barAlignSelectEl.addEventListener('change', onChange);
   hoverGrowScaleSelectEl.addEventListener('change', onChange);
   hoverGrowSpeedSelectEl.addEventListener('change', onChange);
   positionSelectEl.addEventListener('change', onChange);
