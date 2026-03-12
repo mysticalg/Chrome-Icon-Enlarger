@@ -559,24 +559,25 @@
 
     // Rounded edge + shadow controls for shell polish.
     const edgeRadius = Math.max(0, Number(settings.barCornerRadius) || 0);
+    // Keep shell edge styling resilient against aggressive host-page CSS resets.
     if (settings.position === 'top') {
-      root.style.borderRadius = `0 0 ${edgeRadius}px ${edgeRadius}px`;
+      root.style.setProperty('border-radius', `0 0 ${edgeRadius}px ${edgeRadius}px`, 'important');
     } else if (settings.position === 'bottom') {
-      root.style.borderRadius = `${edgeRadius}px ${edgeRadius}px 0 0`;
+      root.style.setProperty('border-radius', `${edgeRadius}px ${edgeRadius}px 0 0`, 'important');
     } else if (settings.position === 'left') {
-      root.style.borderRadius = `0 ${edgeRadius}px ${edgeRadius}px 0`;
+      root.style.setProperty('border-radius', `0 ${edgeRadius}px ${edgeRadius}px 0`, 'important');
     } else {
-      root.style.borderRadius = `${edgeRadius}px 0 0 ${edgeRadius}px`;
+      root.style.setProperty('border-radius', `${edgeRadius}px 0 0 ${edgeRadius}px`, 'important');
     }
 
     const shadowStrength = (Math.max(0, Number(settings.barShadowStrength) || 0) / 100);
     if (shadowStrength <= 0) {
-      root.style.boxShadow = 'none';
+      root.style.setProperty('box-shadow', 'none', 'important');
     } else {
       const y = (2 + (8 * shadowStrength)).toFixed(1);
       const blur = (8 + (20 * shadowStrength)).toFixed(1);
       const alpha = (0.15 + (0.45 * shadowStrength)).toFixed(2);
-      root.style.boxShadow = `0 ${y}px ${blur}px rgba(2, 6, 23, ${alpha})`;
+      root.style.setProperty('box-shadow', `0 ${y}px ${blur}px rgba(2, 6, 23, ${alpha})`, 'important');
     }
 
     const spacerHeight = settings.noTopSpacer ? 0 : slotPx + 10;
