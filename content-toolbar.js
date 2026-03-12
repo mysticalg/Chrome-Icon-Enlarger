@@ -107,6 +107,41 @@
   let selectedBookmarkId = null;
   let draggedBookmarkId = null;
   let topHideTimer = null;
+  let extensionContextInvalid = false;
+
+  function isRuntimeContextInvalidError(error) {
+    const message = String(error?.message || error || '');
+    return message.includes('Extension context invalidated');
+  }
+
+  function markExtensionContextInvalid(error) {
+    if (extensionContextInvalid) {
+      return;
+    }
+    extensionContextInvalid = true;
+    console.warn('Big Favorites extension context became invalid:', error);
+
+    // Older injected scripts can survive after extension reload/update.
+    // Show a clear inline hint instead of throwing uncaught runtime errors.
+    closeTransientMenus();
+    list.replaceChildren(renderEmptyState('Extension updated. Reload this page, then open Big Favorites again.'));
+  }
+
+  async function safeSendMessage(payload) {
+    if (extensionContextInvalid) {
+      return { ok: false, error: 'Extension context invalidated. Reload the page.' };
+    }
+
+    try {
+      return await chrome.runtime.sendMessage(payload);
+    } catch (error) {
+      if (isRuntimeContextInvalidError(error)) {
+        markExtensionContextInvalid(error);
+        return { ok: false, error: 'Extension context invalidated. Reload the page.' };
+      }
+      throw error;
+    }
+  }
 
   function closeOverflowMenu() {
     overflowMenu.hidden = true;
@@ -200,12 +235,12 @@
     let response;
 
     try {
-      response = await chrome.runtime.sendMessage({ type: 'GET_TOOLBAR_BOOKMARKS' });
+      response = await safeSendMessage({ type: 'GET_TOOLBAR_BOOKMARKS' });
     } catch (error) {
       // Provide a clearer error when the worker is unavailable so users know
       // a quick extension reload usually restores the message channel.
       const message = String(error?.message || error || 'Unknown runtime error');
-      if (message.includes('Receiving end does not exist')) {
+      if (message.includes('Receiving end does not exist') || message.includes('Extension context invalidated')) {
         throw new Error('Background worker unavailable. Reload the extension, then refresh this page.');
       }
       throw error;
@@ -280,7 +315,7 @@
       toIndex -= 1;
     }
 
-    const response = await chrome.runtime.sendMessage({
+    const response = await safeSendMessage({
       type: 'MOVE_TOOLBAR_BOOKMARK',
       bookmarkId: dragId,
       toIndex,
@@ -748,7 +783,7 @@
 
   addCurrentBtn.addEventListener('click', async () => {
     try {
-      const response = await chrome.runtime.sendMessage({
+      const response = await safeSendMessage({
         type: 'ADD_TOOLBAR_BOOKMARK',
         url: window.location.href,
         title: document.title,
@@ -793,7 +828,7 @@
     }
 
     try {
-      const response = await chrome.runtime.sendMessage({
+      const response = await safeSendMessage({
         type: 'REMOVE_TOOLBAR_BOOKMARK',
         bookmarkId: selectedBookmarkId,
       });
@@ -895,7 +930,7 @@
     }
 
     try {
-      const response = await chrome.runtime.sendMessage({
+      const response = await safeSendMessage({
         type: 'ADD_TOOLBAR_BOOKMARK',
         url,
       });

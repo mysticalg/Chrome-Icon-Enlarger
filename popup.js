@@ -61,8 +61,25 @@ let currentToolbarSettings = { ...DEFAULT_TOOLBAR_SETTINGS };
 
 
 function isInjectableTabUrl(url) {
-  // Restrict injection to normal web pages; Chrome internal URLs reject script injection.
-  return /^https?:\/\//i.test(String(url || ''));
+  // Restrict injection to normal web pages; browser internal/gallery URLs reject scripting.
+  const text = String(url || '').trim();
+  if (!/^https?:\/\//i.test(text)) {
+    return false;
+  }
+
+  try {
+    const parsed = new URL(text);
+    const host = parsed.hostname.toLowerCase();
+
+    // Chrome extension gallery pages cannot be scripted even when they are https.
+    if (host === 'chromewebstore.google.com' || host === 'chrome.google.com') {
+      return false;
+    }
+
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 async function ensureToolbarInjectedOnActiveTab() {
@@ -72,8 +89,10 @@ async function ensureToolbarInjectedOnActiveTab() {
   }
 
   const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (!activeTab?.id || !isInjectableTabUrl(activeTab.url)) {
-    showStatus('Open a normal web page tab (http/https), then reopen this popup.');
+  const currentUrl = activeTab?.url || activeTab?.pendingUrl || '';
+
+  if (!activeTab?.id || !isInjectableTabUrl(currentUrl)) {
+    showStatus('This tab cannot be scripted. Open any normal website tab, then reopen this popup.');
     return;
   }
 
@@ -93,6 +112,11 @@ async function ensureToolbarInjectedOnActiveTab() {
     showStatus('Toolbar injected on this tab. Move to the top edge if auto-hide is enabled.');
   } catch (error) {
     console.error('Toolbar injection failed:', error);
+    const message = String(error?.message || error || '');
+    if (message.includes('cannot be scripted') || message.includes('Cannot access')) {
+      showStatus('This page blocks extensions. Switch to a normal website tab, then reopen popup.');
+      return;
+    }
     showStatus('Could not inject toolbar on this tab. Try reloading the page, then open popup again.');
   }
 }
