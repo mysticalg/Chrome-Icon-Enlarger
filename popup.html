@@ -56,9 +56,29 @@
           <span class="field__label">Animate icon hover grow</span>
         </label>
 
-        <label class="field field--inline" title="Make the launcher bar background transparent so page content shows through.">
-          <input id="transparentBackgroundToggle" type="checkbox" />
-          <span class="field__label">Transparent bar background</span>
+        <label class="field" title="Adjust toolbar shell opacity from fully transparent (0%) to fully visible (100%).">
+          <span class="field__label">🎚 Bar background opacity <span id="barBackgroundOpacityValue">95%</span></span>
+          <input
+            id="barBackgroundOpacityRange"
+            class="field__control field__control--range"
+            type="range"
+            min="0"
+            max="100"
+            step="5"
+            value="95"
+            aria-label="Bar background opacity"
+          />
+        </label>
+
+        <label class="field" title="Pick the launcher bar background color.">
+          <span class="field__label">🎨 Bar background color</span>
+          <input
+            id="barBackgroundColorInput"
+            class="field__control field__control--color"
+            type="color"
+            value="#0f172a"
+            aria-label="Bar background color"
+          />
         </label>
 
         <label class="field" title="Choose how large icons become while hovering. Toolbar tiles remain fixed size.">

@@ -111,6 +111,19 @@ body {
   max-width: 100%;
 }
 
+.field__control--range {
+  padding: 0;
+  accent-color: var(--focus);
+  cursor: pointer;
+}
+
+.field__control--color {
+  width: 52px;
+  height: 32px;
+  padding: 2px;
+  cursor: pointer;
+}
+
 /* In tight side panels, stack labels/controls to prevent squeezed clipping. */
 @media (max-width: 420px) {
   body {

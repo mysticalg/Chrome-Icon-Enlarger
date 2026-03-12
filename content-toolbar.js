@@ -23,13 +23,15 @@
     openMode: 'current',
     autoHideTop: true,
     hoverGrowIcons: false,
-    transparentBackground: false,
     hoverGrowScale: 1.2,
     hoverGrowSpeed: 240,
     // Default on: keeps page position stable while top toolbar auto-hides.
     keepSpacerOnAutoHide: true,
     // Optional mode: remove top spacer completely so toolbar overlays content.
     noTopSpacer: false,
+    // User-adjustable shell look.
+    barBackgroundOpacity: 95,
+    barBackgroundColor: '#0f172a',
   };
 
   if (document.getElementById(ROOT_ID)) {
@@ -396,7 +398,22 @@
     normalized.hoverGrowIcons = Boolean(normalized.hoverGrowIcons);
     normalized.keepSpacerOnAutoHide = Boolean(normalized.keepSpacerOnAutoHide);
     normalized.noTopSpacer = Boolean(normalized.noTopSpacer);
-    normalized.transparentBackground = Boolean(normalized.transparentBackground);
+
+    const opacity = Number.parseInt(normalized.barBackgroundOpacity, 10);
+    normalized.barBackgroundOpacity = Number.isFinite(opacity)
+      ? Math.min(100, Math.max(0, opacity))
+      : DEFAULT_SETTINGS.barBackgroundOpacity;
+
+    const color = String(normalized.barBackgroundColor || '').trim();
+    normalized.barBackgroundColor = /^#[0-9A-Fa-f]{6}$/.test(color)
+      ? color.toLowerCase()
+      : DEFAULT_SETTINGS.barBackgroundColor;
+
+    // Backward compatibility: migrate legacy transparent toggle value to 0% opacity
+    // unless explicit opacity was already saved.
+    if (raw?.transparentBackground === true && raw?.barBackgroundOpacity == null) {
+      normalized.barBackgroundOpacity = 0;
+    }
 
     const hoverGrowScale = Number.parseFloat(normalized.hoverGrowScale);
     normalized.hoverGrowScale = Number.isFinite(hoverGrowScale)
@@ -420,6 +437,18 @@
     }
   }
 
+  function hexToRgb(hexColor) {
+    const parsed = /^#?([\da-fA-F]{2})([\da-fA-F]{2})([\da-fA-F]{2})$/.exec(hexColor);
+    if (!parsed) {
+      return { r: 15, g: 23, b: 42 };
+    }
+    return {
+      r: Number.parseInt(parsed[1], 16),
+      g: Number.parseInt(parsed[2], 16),
+      b: Number.parseInt(parsed[3], 16),
+    };
+  }
+
   function applySettingsToLayout() {
     const iconPx = BASE_ICON * Number(settings.scale);
     const slotPx = settings.iconOnly ? iconPx + 10 : Math.max(iconPx + 76, 120);
@@ -429,24 +458,16 @@
     root.dataset.iconOnly = String(settings.iconOnly);
     root.dataset.position = settings.position;
     root.dataset.hoverGrowIcons = String(settings.hoverGrowIcons);
-    // Expose transparent mode to CSS via dataset so chrome.storage changes hot-apply.
-    root.dataset.transparentBackground = String(settings.transparentBackground);
     root.style.setProperty('--bf-hover-grow-scale', String(settings.hoverGrowScale));
     root.style.setProperty('--bf-hover-grow-duration', `${settings.hoverGrowSpeed}ms`);
 
-    // Apply transparent shell styles inline too, so page CSS cannot accidentally
-    // keep the default dark bar when users enable transparent mode.
-    if (settings.transparentBackground) {
-      root.style.background = 'transparent';
-      root.style.borderColor = 'transparent';
-      root.style.backdropFilter = 'none';
-      root.style.boxShadow = 'none';
-    } else {
-      root.style.removeProperty('background');
-      root.style.removeProperty('border-color');
-      root.style.removeProperty('backdrop-filter');
-      root.style.removeProperty('box-shadow');
-    }
+    // Apply user-tunable shell color + opacity inline so page CSS cannot override.
+    const shellRgb = hexToRgb(settings.barBackgroundColor);
+    const shellAlpha = settings.barBackgroundOpacity / 100;
+    root.style.background = `rgba(${shellRgb.r}, ${shellRgb.g}, ${shellRgb.b}, ${shellAlpha.toFixed(2)})`;
+    root.style.borderColor = `rgba(148, 163, 184, ${Math.min(0.45, shellAlpha).toFixed(2)})`;
+    root.style.backdropFilter = shellAlpha <= 0.01 ? 'none' : 'blur(8px)';
+    root.style.boxShadow = shellAlpha <= 0.01 ? 'none' : '';
 
     const spacerHeight = settings.noTopSpacer ? 0 : slotPx + 10;
     if (settings.position === 'top') {
