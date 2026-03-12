@@ -132,35 +132,39 @@
 }
 
 .bf-toolbar__overflow-menu {
-  position: absolute;
-  right: 10px;
-  top: calc(100% - 4px);
-  z-index: 20;
-  min-width: 210px;
-  max-width: min(360px, calc(100vw - 20px));
-  max-height: 280px;
+  position: fixed;
+  top: 0;
+  right: 8px;
+  z-index: 2147483647;
+  min-width: max-content;
+  width: min(420px, 70vw);
+  height: 100vh;
+  max-height: 100vh;
   overflow: auto;
-  padding: 6px;
-  border-radius: 10px;
+  padding: 8px 6px;
+  border-radius: 0;
   border: 1px solid rgba(148, 163, 184, 0.45);
-  background: rgba(15, 23, 42, 0.98);
+  background: rgba(15, 23, 42, 0.985);
   box-shadow: 0 10px 24px rgba(2, 6, 23, 0.55);
 }
 
+
+.bf-toolbar[data-icon-only='true'] .bf-toolbar__overflow-menu {
+  width: calc(var(--bf-slot-size) + 12px);
+  min-width: calc(var(--bf-slot-size) + 12px);
+}
+
 .bf-toolbar[data-position='left'] .bf-toolbar__overflow-menu {
-  left: calc(100% + 6px);
+  left: calc(var(--bf-slot-size) + 14px);
   right: auto;
-  top: 0;
 }
 
 .bf-toolbar[data-position='right'] .bf-toolbar__overflow-menu {
-  right: calc(100% + 6px);
-  top: 0;
+  right: calc(var(--bf-slot-size) + 14px);
 }
 
 .bf-toolbar[data-position='bottom'] .bf-toolbar__overflow-menu {
-  top: auto;
-  bottom: calc(100% - 4px);
+  right: 8px;
 }
 
 .bf-toolbar__overflow-item {
@@ -174,13 +178,29 @@
   padding: 7px 8px;
 }
 
+/* When icon-only is enabled, overflow items match main-row tile dimensions exactly. */
+.bf-toolbar[data-icon-only='true'] .bf-toolbar__overflow-item {
+  justify-content: center;
+  width: var(--bf-slot-size);
+  min-width: var(--bf-slot-size);
+  max-width: var(--bf-slot-size);
+  height: var(--bf-slot-size);
+  min-height: var(--bf-slot-size);
+  padding: 0;
+  gap: 0;
+}
+
 .bf-toolbar__overflow-icon {
-  width: 18px;
-  height: 18px;
-  border-radius: 4px;
-  flex: 0 0 18px;
+  width: var(--bf-icon-size);
+  height: var(--bf-icon-size);
+  border-radius: 6px;
+  flex: 0 0 var(--bf-icon-size);
   object-fit: contain;
   background: rgba(100, 116, 139, 0.2);
+}
+
+.bf-toolbar[data-icon-only='true'] .bf-toolbar__overflow-text {
+  display: none;
 }
 
 .bf-toolbar__overflow-text {

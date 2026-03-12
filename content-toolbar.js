@@ -176,7 +176,13 @@
     text.className = 'bf-toolbar__overflow-text';
     text.textContent = label;
 
-    item.append(img, text);
+    // Respect icon-only mode in overflow panel too (no text when disabled in settings).
+    if (settings.iconOnly) {
+      item.append(img);
+    } else {
+      item.append(img, text);
+    }
+
     return item;
   }
 
