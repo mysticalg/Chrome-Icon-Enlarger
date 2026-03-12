@@ -3,6 +3,7 @@
   --bf-slot-size: 42px;
   --bf-hover-grow-scale: 1.2;
   --bf-hover-grow-duration: 240ms;
+  --bf-collapse-duration: 180ms;
   position: fixed;
   top: 0;
   left: 0;
@@ -14,7 +15,7 @@
   backdrop-filter: blur(8px);
   font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
   padding: 4px 10px;
-  transition: transform 180ms ease, opacity 180ms ease;
+  transition: transform var(--bf-collapse-duration) ease, opacity var(--bf-collapse-duration) ease;
 }
 
 
@@ -38,7 +39,7 @@
   --bf-spacer-height: 52px;
   height: var(--bf-spacer-height);
   opacity: 1;
-  transition: height 180ms ease, opacity 180ms ease;
+  transition: height var(--bf-collapse-duration) ease, opacity var(--bf-collapse-duration) ease;
   pointer-events: none;
 }
 

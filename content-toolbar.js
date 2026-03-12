@@ -23,11 +23,26 @@
     openMode: 'current',
     autoHideTop: true,
     hoverGrowIcons: false,
-    transparentBackground: false,
     hoverGrowScale: 1.2,
     hoverGrowSpeed: 240,
     // Default on: keeps page position stable while top toolbar auto-hides.
     keepSpacerOnAutoHide: true,
+    // Optional mode: remove top spacer completely so toolbar overlays content.
+    noTopSpacer: false,
+    // User-adjustable shell look.
+    barBackgroundOpacity: 95,
+    barBackgroundColor: '#0f172a',
+    // Top/bottom launcher width (% of page width).
+    barWidthPercent: 100,
+    // Anchor position when width is less than 100% for top/bottom bars.
+    barAlign: 'left',
+    // Optional shell polish controls.
+    barCornerRadius: 0,
+    barShadowStrength: 0,
+    // Top auto-hide timing controls.
+    autoHideDelayMs: 700,
+    showSpeedMs: 180,
+    hideSpeedMs: 180,
   };
 
   if (document.getElementById(ROOT_ID)) {
@@ -114,13 +129,20 @@
     return settings.position === 'top' && settings.autoHideTop;
   }
 
+  function applyCollapseTransitionSpeed(durationMs) {
+    const safeDuration = Math.max(0, Number(durationMs) || 0);
+    root.style.setProperty('--bf-collapse-duration', `${safeDuration}ms`);
+    topSpacer.style.setProperty('--bf-collapse-duration', `${safeDuration}ms`);
+  }
+
   function showToolbarAnimated() {
     if (!isTopAutoHideEnabled()) {
       return;
     }
     clearTopHideTimer();
+    applyCollapseTransitionSpeed(settings.showSpeedMs);
     root.dataset.collapsed = 'false';
-    topSpacer.dataset.collapsed = 'false';
+    topSpacer.dataset.collapsed = settings.noTopSpacer ? 'true' : 'false';
   }
 
   function hideToolbarAnimated() {
@@ -130,20 +152,25 @@
     if (root.matches(':hover') || !overflowMenu.hidden || !bookmarkMenu.hidden) {
       return;
     }
+    applyCollapseTransitionSpeed(settings.hideSpeedMs);
     root.dataset.collapsed = 'true';
 
-    // Optional mode: keep layout spacer visible while toolbar slides away.
+    // Optional modes: keep spacer for stable layout or hide completely in overlay mode.
+    if (settings.noTopSpacer) {
+      topSpacer.dataset.collapsed = 'true';
+      return;
+    }
     topSpacer.dataset.collapsed = settings.keepSpacerOnAutoHide ? 'false' : 'true';
   }
 
-  function scheduleToolbarHide(delayMs = 700) {
+  function scheduleToolbarHide(delayMs = settings.autoHideDelayMs) {
     if (!isTopAutoHideEnabled()) {
       return;
     }
     clearTopHideTimer();
     topHideTimer = setTimeout(() => {
       hideToolbarAnimated();
-    }, delayMs);
+    }, Math.max(0, Number(delayMs) || 0));
   }
 
   async function requestBookmarks() {
@@ -389,7 +416,58 @@
     normalized.autoHideTop = Boolean(normalized.autoHideTop);
     normalized.hoverGrowIcons = Boolean(normalized.hoverGrowIcons);
     normalized.keepSpacerOnAutoHide = Boolean(normalized.keepSpacerOnAutoHide);
-    normalized.transparentBackground = Boolean(normalized.transparentBackground);
+    normalized.noTopSpacer = Boolean(normalized.noTopSpacer);
+
+    const opacity = Number.parseInt(normalized.barBackgroundOpacity, 10);
+    normalized.barBackgroundOpacity = Number.isFinite(opacity)
+      ? Math.min(100, Math.max(0, opacity))
+      : DEFAULT_SETTINGS.barBackgroundOpacity;
+
+    const color = String(normalized.barBackgroundColor || '').trim();
+    normalized.barBackgroundColor = /^#[0-9A-Fa-f]{6}$/.test(color)
+      ? color.toLowerCase()
+      : DEFAULT_SETTINGS.barBackgroundColor;
+
+    const widthPercent = Number.parseInt(normalized.barWidthPercent, 10);
+    normalized.barWidthPercent = Number.isFinite(widthPercent)
+      ? Math.min(100, Math.max(25, widthPercent))
+      : DEFAULT_SETTINGS.barWidthPercent;
+
+    const barAlign = String(normalized.barAlign || '').toLowerCase();
+    normalized.barAlign = ['left', 'center', 'right'].includes(barAlign)
+      ? barAlign
+      : DEFAULT_SETTINGS.barAlign;
+
+    const barCornerRadius = Number.parseInt(normalized.barCornerRadius, 10);
+    normalized.barCornerRadius = Number.isFinite(barCornerRadius)
+      ? Math.min(24, Math.max(0, barCornerRadius))
+      : DEFAULT_SETTINGS.barCornerRadius;
+
+    const barShadowStrength = Number.parseInt(normalized.barShadowStrength, 10);
+    normalized.barShadowStrength = Number.isFinite(barShadowStrength)
+      ? Math.min(100, Math.max(0, barShadowStrength))
+      : DEFAULT_SETTINGS.barShadowStrength;
+
+    const autoHideDelayMs = Number.parseInt(normalized.autoHideDelayMs, 10);
+    normalized.autoHideDelayMs = Number.isFinite(autoHideDelayMs)
+      ? Math.min(2000, Math.max(0, autoHideDelayMs))
+      : DEFAULT_SETTINGS.autoHideDelayMs;
+
+    const showSpeedMs = Number.parseInt(normalized.showSpeedMs, 10);
+    normalized.showSpeedMs = Number.isFinite(showSpeedMs)
+      ? Math.min(2000, Math.max(0, showSpeedMs))
+      : DEFAULT_SETTINGS.showSpeedMs;
+
+    const hideSpeedMs = Number.parseInt(normalized.hideSpeedMs, 10);
+    normalized.hideSpeedMs = Number.isFinite(hideSpeedMs)
+      ? Math.min(2000, Math.max(0, hideSpeedMs))
+      : DEFAULT_SETTINGS.hideSpeedMs;
+
+    // Backward compatibility: migrate legacy transparent toggle value to 0% opacity
+    // unless explicit opacity was already saved.
+    if (raw?.transparentBackground === true && raw?.barBackgroundOpacity == null) {
+      normalized.barBackgroundOpacity = 0;
+    }
 
     const hoverGrowScale = Number.parseFloat(normalized.hoverGrowScale);
     normalized.hoverGrowScale = Number.isFinite(hoverGrowScale)
@@ -413,6 +491,18 @@
     }
   }
 
+  function hexToRgb(hexColor) {
+    const parsed = /^#?([\da-fA-F]{2})([\da-fA-F]{2})([\da-fA-F]{2})$/.exec(hexColor);
+    if (!parsed) {
+      return { r: 15, g: 23, b: 42 };
+    }
+    return {
+      r: Number.parseInt(parsed[1], 16),
+      g: Number.parseInt(parsed[2], 16),
+      b: Number.parseInt(parsed[3], 16),
+    };
+  }
+
   function applySettingsToLayout() {
     const iconPx = BASE_ICON * Number(settings.scale);
     const slotPx = settings.iconOnly ? iconPx + 10 : Math.max(iconPx + 76, 120);
@@ -422,24 +512,91 @@
     root.dataset.iconOnly = String(settings.iconOnly);
     root.dataset.position = settings.position;
     root.dataset.hoverGrowIcons = String(settings.hoverGrowIcons);
-    // Expose transparent mode to CSS via dataset so chrome.storage changes hot-apply.
-    root.dataset.transparentBackground = String(settings.transparentBackground);
     root.style.setProperty('--bf-hover-grow-scale', String(settings.hoverGrowScale));
     root.style.setProperty('--bf-hover-grow-duration', `${settings.hoverGrowSpeed}ms`);
 
+    // Keep default transition speed in sync even before first show/hide cycle.
+    applyCollapseTransitionSpeed(settings.hideSpeedMs);
+
+    // Width slider applies to top/bottom bars only. Side rails keep natural width.
+    if (settings.position === 'top' || settings.position === 'bottom') {
+      // Use !important so host-page CSS cannot force the bar back to full width.
+      root.style.setProperty('width', `${settings.barWidthPercent}%`, 'important');
+      root.style.setProperty('max-width', '100vw', 'important');
+
+      // Let users choose how reduced-width bars anchor across the page.
+      if (settings.barAlign === 'center') {
+        root.style.setProperty('left', '0', 'important');
+        root.style.setProperty('right', '0', 'important');
+        root.style.setProperty('margin-left', 'auto', 'important');
+        root.style.setProperty('margin-right', 'auto', 'important');
+      } else if (settings.barAlign === 'right') {
+        root.style.setProperty('left', 'auto', 'important');
+        root.style.setProperty('right', '0', 'important');
+        root.style.setProperty('margin-left', '0', 'important');
+        root.style.setProperty('margin-right', '0', 'important');
+      } else {
+        root.style.setProperty('left', '0', 'important');
+        root.style.setProperty('right', 'auto', 'important');
+        root.style.setProperty('margin-left', '0', 'important');
+        root.style.setProperty('margin-right', '0', 'important');
+      }
+    } else {
+      root.style.removeProperty('width');
+      root.style.removeProperty('max-width');
+      root.style.removeProperty('left');
+      root.style.removeProperty('right');
+      root.style.removeProperty('margin-left');
+      root.style.removeProperty('margin-right');
+    }
+
+    // Apply user-tunable shell color + opacity inline so page CSS cannot override.
+    const shellRgb = hexToRgb(settings.barBackgroundColor);
+    const shellAlpha = settings.barBackgroundOpacity / 100;
+    root.style.background = `rgba(${shellRgb.r}, ${shellRgb.g}, ${shellRgb.b}, ${shellAlpha.toFixed(2)})`;
+    root.style.borderColor = `rgba(148, 163, 184, ${Math.min(0.45, shellAlpha).toFixed(2)})`;
+    root.style.backdropFilter = shellAlpha <= 0.01 ? 'none' : 'blur(8px)';
+
+    // Rounded edge + shadow controls for shell polish.
+    const edgeRadius = Math.max(0, Number(settings.barCornerRadius) || 0);
+    // Keep shell edge styling resilient against aggressive host-page CSS resets.
     if (settings.position === 'top') {
-      topSpacer.style.setProperty('--bf-spacer-height', `${slotPx + 10}px`);
+      root.style.setProperty('border-radius', `0 0 ${edgeRadius}px ${edgeRadius}px`, 'important');
+    } else if (settings.position === 'bottom') {
+      root.style.setProperty('border-radius', `${edgeRadius}px ${edgeRadius}px 0 0`, 'important');
+    } else if (settings.position === 'left') {
+      root.style.setProperty('border-radius', `0 ${edgeRadius}px ${edgeRadius}px 0`, 'important');
+    } else {
+      root.style.setProperty('border-radius', `${edgeRadius}px 0 0 ${edgeRadius}px`, 'important');
+    }
+
+    const shadowStrength = (Math.max(0, Number(settings.barShadowStrength) || 0) / 100);
+    if (shadowStrength <= 0) {
+      root.style.setProperty('box-shadow', 'none', 'important');
+    } else {
+      const y = (2 + (8 * shadowStrength)).toFixed(1);
+      const blur = (8 + (20 * shadowStrength)).toFixed(1);
+      const alpha = (0.15 + (0.45 * shadowStrength)).toFixed(2);
+      root.style.setProperty('box-shadow', `0 ${y}px ${blur}px rgba(2, 6, 23, ${alpha})`, 'important');
+    }
+
+    const spacerHeight = settings.noTopSpacer ? 0 : slotPx + 10;
+    if (settings.position === 'top') {
+      topSpacer.style.setProperty('--bf-spacer-height', `${spacerHeight}px`);
     } else {
       topSpacer.style.setProperty('--bf-spacer-height', '0px');
     }
 
-    if (isTopAutoHideEnabled()) {
-      root.dataset.collapsed = 'true';
+    if (settings.noTopSpacer) {
+      // Overlay mode: keep spacer collapsed at all times.
+      topSpacer.dataset.collapsed = 'true';
+    } else if (isTopAutoHideEnabled()) {
       topSpacer.dataset.collapsed = settings.keepSpacerOnAutoHide ? 'false' : 'true';
     } else {
-      root.dataset.collapsed = 'false';
       topSpacer.dataset.collapsed = 'false';
     }
+
+    root.dataset.collapsed = isTopAutoHideEnabled() ? 'true' : 'false';
   }
 
   function mountToolbar() {
@@ -650,7 +807,7 @@
   });
 
   root.addEventListener('mouseleave', () => {
-    scheduleToolbarHide(800);
+    scheduleToolbarHide();
   });
 
   root.addEventListener('dragover', (event) => {
@@ -767,7 +924,7 @@
     }
 
     if (!root.matches(':hover')) {
-      scheduleToolbarHide(450);
+      scheduleToolbarHide();
     }
   }, { passive: true });
 
@@ -777,7 +934,7 @@
     }
 
     if (!root.matches(':hover')) {
-      scheduleToolbarHide(300);
+      scheduleToolbarHide();
     }
   }, { passive: true });
 
@@ -794,7 +951,7 @@
       layoutToolbar();
 
       if (isTopAutoHideEnabled()) {
-        scheduleToolbarHide(600);
+        scheduleToolbarHide();
       } else {
         clearTopHideTimer();
       }

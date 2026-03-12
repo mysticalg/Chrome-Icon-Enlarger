@@ -46,14 +46,135 @@
           <span class="field__label">Keep spacer while auto-hidden</span>
         </label>
 
+        <label class="field field--inline" title="Disable the top spacer entirely so the launcher overlays page content with no reserved gap.">
+          <input id="noTopSpacerToggle" type="checkbox" />
+          <span class="field__label">🧱 No top spacer (overlay mode)</span>
+        </label>
+
         <label class="field field--inline" title="Icons grow slightly on hover while tile size stays fixed.">
           <input id="hoverGrowIconsToggle" type="checkbox" />
           <span class="field__label">Animate icon hover grow</span>
         </label>
 
-        <label class="field field--inline" title="Make the launcher bar background transparent so page content shows through.">
-          <input id="transparentBackgroundToggle" type="checkbox" />
-          <span class="field__label">Transparent bar background</span>
+        <label class="field" title="Adjust toolbar shell opacity from fully transparent (0%) to fully visible (100%).">
+          <span class="field__label">🎚 Bar background opacity <span id="barBackgroundOpacityValue">95%</span></span>
+          <input
+            id="barBackgroundOpacityRange"
+            class="field__control field__control--range"
+            type="range"
+            min="0"
+            max="100"
+            step="5"
+            value="95"
+            aria-label="Bar background opacity"
+          />
+        </label>
+
+        <label class="field" title="Pick the launcher bar background color.">
+          <span class="field__label">🎨 Bar background color</span>
+          <input
+            id="barBackgroundColorInput"
+            class="field__control field__control--color"
+            type="color"
+            value="#0f172a"
+            aria-label="Bar background color"
+          />
+        </label>
+
+
+        <label class="field" title="Set top/bottom launcher width from 25% to 100% of the page width.">
+          <span class="field__label">↔️ Bar width <span id="barWidthPercentValue">100%</span></span>
+          <input
+            id="barWidthPercentRange"
+            class="field__control field__control--range"
+            type="range"
+            min="25"
+            max="100"
+            step="5"
+            value="100"
+            aria-label="Bar width percentage"
+          />
+        </label>
+
+
+        <label class="field" title="Choose where the top or bottom bar is anchored when width is less than 100%.">
+          <span class="field__label">📐 Bar alignment</span>
+          <select id="barAlignSelect" class="field__control" title="Align top/bottom bar to left, center, or right">
+            <option value="left">Left</option>
+            <option value="center">Center</option>
+            <option value="right">Right</option>
+          </select>
+        </label>
+
+
+        <label class="field" title="Round only the exposed bottom edge corners of the top bar (or top edge for bottom bar).">
+          <span class="field__label">◜ Bar corner roundness <span id="barCornerRadiusValue">0px</span></span>
+          <input
+            id="barCornerRadiusRange"
+            class="field__control field__control--range"
+            type="range"
+            min="0"
+            max="24"
+            step="1"
+            value="0"
+            aria-label="Bar corner roundness"
+          />
+        </label>
+
+        <label class="field" title="Add a drop shadow under the bar shell. 0 means no shadow.">
+          <span class="field__label">🌑 Bar drop shadow <span id="barShadowStrengthValue">0%</span></span>
+          <input
+            id="barShadowStrengthRange"
+            class="field__control field__control--range"
+            type="range"
+            min="0"
+            max="100"
+            step="5"
+            value="0"
+            aria-label="Bar drop shadow strength"
+          />
+        </label>
+
+        <label class="field" title="Delay before top auto-hide starts after pointer leaves the launcher.">
+          <span class="field__label">⏱ Auto-hide delay <span id="autoHideDelayValue">700ms</span></span>
+          <input
+            id="autoHideDelayRange"
+            class="field__control field__control--range"
+            type="range"
+            min="0"
+            max="2000"
+            step="50"
+            value="700"
+            aria-label="Auto-hide delay in milliseconds"
+          />
+        </label>
+
+        <label class="field" title="Animation speed when the top launcher reveals. 0ms opens instantly.">
+          <span class="field__label">🚀 Show speed <span id="showSpeedValue">180ms</span></span>
+          <input
+            id="showSpeedRange"
+            class="field__control field__control--range"
+            type="range"
+            min="0"
+            max="2000"
+            step="50"
+            value="180"
+            aria-label="Show animation speed in milliseconds"
+          />
+        </label>
+
+        <label class="field" title="Animation speed when the top launcher hides. 0ms closes instantly.">
+          <span class="field__label">🏁 Close speed <span id="hideSpeedValue">180ms</span></span>
+          <input
+            id="hideSpeedRange"
+            class="field__control field__control--range"
+            type="range"
+            min="0"
+            max="2000"
+            step="50"
+            value="180"
+            aria-label="Hide animation speed in milliseconds"
+          />
         </label>
 
         <label class="field" title="Choose how large icons become while hovering. Toolbar tiles remain fixed size.">
