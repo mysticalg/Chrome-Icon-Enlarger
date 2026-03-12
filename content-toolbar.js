@@ -110,7 +110,18 @@
 
   function closeOverflowMenu() {
     overflowMenu.hidden = true;
-    overflowBtn.setAttribute('aria-expanded', 'false');
+    updateOverflowToggleUi();
+  }
+
+  /**
+   * Keep overflow toggle text/tooltip in sync so users can clearly show/hide bookmarks.
+   */
+  function updateOverflowToggleUi() {
+    const isOpen = !overflowMenu.hidden;
+    overflowBtn.textContent = isOpen ? '×' : '»';
+    overflowBtn.title = isOpen ? 'Hide hidden bookmarks' : 'Show hidden bookmarks';
+    overflowBtn.setAttribute('aria-label', isOpen ? 'Hide hidden bookmarks dropdown' : 'Show hidden bookmarks in dropdown');
+    overflowBtn.setAttribute('aria-expanded', String(isOpen));
   }
 
   function closeBookmarkMenu() {
@@ -553,8 +564,13 @@
     // Apply user-tunable shell color + opacity inline so page CSS cannot override.
     const shellRgb = hexToRgb(settings.barBackgroundColor);
     const shellAlpha = settings.barBackgroundOpacity / 100;
-    root.style.background = `rgba(${shellRgb.r}, ${shellRgb.g}, ${shellRgb.b}, ${shellAlpha.toFixed(2)})`;
-    root.style.borderColor = `rgba(148, 163, 184, ${Math.min(0.45, shellAlpha).toFixed(2)})`;
+    const shellBackground = `rgba(${shellRgb.r}, ${shellRgb.g}, ${shellRgb.b}, ${shellAlpha.toFixed(2)})`;
+    const shellBorder = `rgba(148, 163, 184, ${Math.min(0.45, shellAlpha).toFixed(2)})`;
+    root.style.background = shellBackground;
+    root.style.borderColor = shellBorder;
+    // Share shell colors with overflow/context menus for a consistent visual system.
+    root.style.setProperty('--bf-shell-bg', shellBackground);
+    root.style.setProperty('--bf-shell-border', shellBorder);
     root.style.backdropFilter = shellAlpha <= 0.01 ? 'none' : 'blur(8px)';
 
     // Rounded edge + shadow controls for shell polish.
@@ -573,11 +589,14 @@
     const shadowStrength = (Math.max(0, Number(settings.barShadowStrength) || 0) / 100);
     if (shadowStrength <= 0) {
       root.style.setProperty('box-shadow', 'none', 'important');
+      root.style.setProperty('--bf-shell-shadow', 'none');
     } else {
       const y = (2 + (8 * shadowStrength)).toFixed(1);
       const blur = (8 + (20 * shadowStrength)).toFixed(1);
       const alpha = (0.15 + (0.45 * shadowStrength)).toFixed(2);
-      root.style.setProperty('box-shadow', `0 ${y}px ${blur}px rgba(2, 6, 23, ${alpha})`, 'important');
+      const shellShadow = `0 ${y}px ${blur}px rgba(2, 6, 23, ${alpha})`;
+      root.style.setProperty('box-shadow', shellShadow, 'important');
+      root.style.setProperty('--bf-shell-shadow', shellShadow);
     }
 
     const spacerHeight = settings.noTopSpacer ? 0 : slotPx + 10;
@@ -714,7 +733,7 @@
     if (overflowMenu.hidden) {
       populateOverflowMenu(lastHiddenBookmarks);
       overflowMenu.hidden = false;
-      overflowBtn.setAttribute('aria-expanded', 'true');
+      updateOverflowToggleUi();
     } else {
       closeOverflowMenu();
     }
@@ -961,6 +980,7 @@
   async function init() {
     settings = await readSettings();
     applySettingsToLayout();
+    updateOverflowToggleUi();
 
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', mountToolbar, { once: true });
