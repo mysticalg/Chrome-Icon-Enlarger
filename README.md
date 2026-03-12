@@ -25,3 +25,14 @@ This extension provides a **large-icon launcher** for the bookmarks toolbar (fav
 - `popup.html` – popup UI layout.
 - `popup.css` – responsive popup styling with 2× icon sizing.
 - `popup.js` – bookmark loading and rendering logic.
+
+## In-page toolbar mode
+
+Big Favorites now also injects an optional **in-page toolbar** on HTTP/HTTPS pages.
+This bar is fixed at the top of each page, so it visually sits just below Chrome's native toolbars (including your favorites bar).
+
+- Shows up to 40 top-level toolbar bookmarks for quick launch.
+- Includes icon fallbacks, tooltips, and a **Hide/Show** toggle.
+- Uses extension messaging (`background.js`) so bookmark reads stay fast and reliable.
+
+> Chrome still does not allow extensions to draw UI directly inside the native toolbar rows.
