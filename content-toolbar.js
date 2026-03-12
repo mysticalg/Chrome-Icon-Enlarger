@@ -31,14 +31,6 @@
   root.className = 'bf-toolbar';
   root.setAttribute('aria-label', 'Big Favorites in-page toolbar');
 
-  const header = document.createElement('div');
-  header.className = 'bf-toolbar__header';
-
-  const title = document.createElement('strong');
-  title.className = 'bf-toolbar__title';
-  title.textContent = '⭐ Big Favorites';
-  title.title = 'Fast bookmark launcher pinned to page';
-
   const list = document.createElement('nav');
   list.className = 'bf-toolbar__list';
   list.setAttribute('aria-label', 'Bookmark shortcuts');
@@ -63,8 +55,8 @@
   overflowMenu.setAttribute('role', 'menu');
   overflowMenu.setAttribute('aria-label', 'Hidden bookmarks');
 
-  header.append(title);
-  root.append(header, list, overflowMenu);
+  // Intentionally render icon rail only (no title row) for a compact launcher.
+  root.append(list, overflowMenu);
 
   let allBookmarks = [];
   let lastHiddenBookmarks = [];

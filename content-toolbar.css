@@ -9,7 +9,7 @@
   border-bottom: 1px solid rgba(148, 163, 184, 0.35);
   backdrop-filter: blur(8px);
   font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
-  padding: 6px 10px;
+  padding: 4px 10px;
 }
 
 .bf-toolbar[data-position='bottom'] {
@@ -35,19 +35,6 @@
   border-radius: 12px 0 0 12px;
 }
 
-.bf-toolbar__header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 5px;
-}
-
-.bf-toolbar__title { font-size: 13px; }
-
-.bf-toolbar[data-position='left'] .bf-toolbar__title,
-.bf-toolbar[data-position='right'] .bf-toolbar__title {
-  font-size: 12px;
-}
 
 .bf-toolbar__list {
   display: flex;
