@@ -59,6 +59,14 @@
   topSpacer.className = 'bf-toolbar-spacer';
   topSpacer.setAttribute('aria-hidden', 'true');
 
+  // Dedicated top-edge trigger keeps auto-hidden launcher discoverable on all sites.
+  const revealHandle = document.createElement('button');
+  revealHandle.className = 'bf-toolbar__reveal-handle';
+  revealHandle.type = 'button';
+  revealHandle.textContent = '⭐';
+  revealHandle.title = 'Show Big Favorites toolbar';
+  revealHandle.setAttribute('aria-label', 'Show Big Favorites toolbar');
+
   const list = document.createElement('nav');
   list.className = 'bf-toolbar__list';
   list.setAttribute('aria-label', 'Bookmark shortcuts');
@@ -107,15 +115,59 @@
   let selectedBookmarkId = null;
   let draggedBookmarkId = null;
   let topHideTimer = null;
+  let extensionContextInvalid = false;
+
+  function isRuntimeContextInvalidError(error) {
+    const message = String(error?.message || error || '');
+    return message.includes('Extension context invalidated');
+  }
+
+  function markExtensionContextInvalid(error) {
+    if (extensionContextInvalid) {
+      return;
+    }
+    extensionContextInvalid = true;
+    console.warn('Big Favorites extension context became invalid:', error);
+
+    // Older injected scripts can survive after extension reload/update.
+    // Show a clear inline hint instead of throwing uncaught runtime errors.
+    closeTransientMenus();
+    list.replaceChildren(renderEmptyState('Extension updated. Reload this page, then open Big Favorites again.'));
+  }
+
+  async function safeSendMessage(payload) {
+    if (extensionContextInvalid) {
+      return { ok: false, error: 'Extension context invalidated. Reload the page.' };
+    }
+
+    try {
+      return await chrome.runtime.sendMessage(payload);
+    } catch (error) {
+      if (isRuntimeContextInvalidError(error)) {
+        markExtensionContextInvalid(error);
+        return { ok: false, error: 'Extension context invalidated. Reload the page.' };
+      }
+      throw error;
+    }
+  }
 
   function closeOverflowMenu() {
     overflowMenu.hidden = true;
     overflowBtn.setAttribute('aria-expanded', 'false');
+    overflowBtn.title = 'Show hidden bookmarks';
+    overflowBtn.setAttribute('aria-label', 'Show hidden bookmarks in dropdown');
   }
 
   function closeBookmarkMenu() {
     bookmarkMenu.hidden = true;
     selectedBookmarkId = null;
+  }
+
+  function closeTransientMenus() {
+    // Keep hide behavior predictable: when the launcher tucks away,
+    // all floating menus should close too so no orphan UI remains on screen.
+    closeOverflowMenu();
+    closeBookmarkMenu();
   }
 
   function clearTopHideTimer() {
@@ -127,6 +179,11 @@
 
   function isTopAutoHideEnabled() {
     return settings.position === 'top' && settings.autoHideTop;
+  }
+
+  function syncRevealHandleState() {
+    // Keep a tiny always-available trigger at page top whenever top auto-hide is active.
+    revealHandle.hidden = !isTopAutoHideEnabled();
   }
 
   function applyCollapseTransitionSpeed(durationMs) {
@@ -149,9 +206,13 @@
     if (!isTopAutoHideEnabled()) {
       return;
     }
-    if (root.matches(':hover') || !overflowMenu.hidden || !bookmarkMenu.hidden) {
+    if (root.matches(':hover')) {
       return;
     }
+
+    // Close popovers before collapsing so hidden state is visually complete.
+    closeTransientMenus();
+
     applyCollapseTransitionSpeed(settings.hideSpeedMs);
     root.dataset.collapsed = 'true';
 
@@ -173,16 +234,26 @@
     }, Math.max(0, Number(delayMs) || 0));
   }
 
+  function revealToolbarAfterInjection() {
+    // On-demand injection can feel like "nothing happened" when top auto-hide starts collapsed.
+    // Briefly reveal after injection so users instantly see where the launcher lives.
+    if (!isTopAutoHideEnabled()) {
+      return;
+    }
+    showToolbarAnimated();
+    scheduleToolbarHide(Math.max(settings.autoHideDelayMs, 1200));
+  }
+
   async function requestBookmarks() {
     let response;
 
     try {
-      response = await chrome.runtime.sendMessage({ type: 'GET_TOOLBAR_BOOKMARKS' });
+      response = await safeSendMessage({ type: 'GET_TOOLBAR_BOOKMARKS' });
     } catch (error) {
       // Provide a clearer error when the worker is unavailable so users know
       // a quick extension reload usually restores the message channel.
       const message = String(error?.message || error || 'Unknown runtime error');
-      if (message.includes('Receiving end does not exist')) {
+      if (message.includes('Receiving end does not exist') || message.includes('Extension context invalidated')) {
         throw new Error('Background worker unavailable. Reload the extension, then refresh this page.');
       }
       throw error;
@@ -257,7 +328,7 @@
       toIndex -= 1;
     }
 
-    const response = await chrome.runtime.sendMessage({
+    const response = await safeSendMessage({
       type: 'MOVE_TOOLBAR_BOOKMARK',
       bookmarkId: dragId,
       toIndex,
@@ -597,6 +668,7 @@
     }
 
     root.dataset.collapsed = isTopAutoHideEnabled() ? 'true' : 'false';
+    syncRevealHandleState();
   }
 
   function mountToolbar() {
@@ -606,10 +678,14 @@
     }
 
     if (settings.position === 'top') {
-      mountTarget.prepend(topSpacer);
-      topSpacer.before(root);
+      // Keep reveal handle mounted at top edge for reliable hover/click recovery.
+      mountTarget.prepend(revealHandle);
+      revealHandle.after(topSpacer);
+      topSpacer.after(root);
       return;
     }
+
+    revealHandle.remove();
 
     if (settings.position === 'bottom') {
       mountTarget.append(root);
@@ -635,14 +711,19 @@
     }
 
     if (settings.position === 'top') {
-      if (!topSpacer.isConnected) {
-        parent.prepend(topSpacer);
+      if (!revealHandle.isConnected) {
+        parent.prepend(revealHandle);
       }
-      if (root.previousElementSibling !== topSpacer) {
+      if (!topSpacer.isConnected) {
+        revealHandle.after(topSpacer);
+      }
+      if (topSpacer.nextElementSibling !== root) {
         topSpacer.after(root);
       }
       return;
     }
+
+    revealHandle.remove();
 
     if (settings.position !== 'bottom' && root !== parent.firstElementChild) {
       parent.prepend(root);
@@ -711,10 +792,13 @@
 
 
   overflowBtn.addEventListener('click', () => {
+    // Prevent document-level handlers from immediately undoing the toggle click.
     if (overflowMenu.hidden) {
       populateOverflowMenu(lastHiddenBookmarks);
       overflowMenu.hidden = false;
       overflowBtn.setAttribute('aria-expanded', 'true');
+      overflowBtn.title = 'Hide hidden bookmarks';
+      overflowBtn.setAttribute('aria-label', 'Hide hidden bookmarks dropdown');
     } else {
       closeOverflowMenu();
     }
@@ -722,7 +806,7 @@
 
   addCurrentBtn.addEventListener('click', async () => {
     try {
-      const response = await chrome.runtime.sendMessage({
+      const response = await safeSendMessage({
         type: 'ADD_TOOLBAR_BOOKMARK',
         url: window.location.href,
         title: document.title,
@@ -767,7 +851,7 @@
     }
 
     try {
-      const response = await chrome.runtime.sendMessage({
+      const response = await safeSendMessage({
         type: 'REMOVE_TOOLBAR_BOOKMARK',
         bookmarkId: selectedBookmarkId,
       });
@@ -800,6 +884,15 @@
     draggedBookmarkId = null;
     root.classList.remove('is-drop-target');
     clearReorderMarkers();
+  });
+
+  revealHandle.addEventListener('mouseenter', () => {
+    showToolbarAnimated();
+  });
+
+  revealHandle.addEventListener('click', () => {
+    showToolbarAnimated();
+    scheduleToolbarHide(Math.max(settings.autoHideDelayMs, 1200));
   });
 
   root.addEventListener('mouseenter', () => {
@@ -869,7 +962,7 @@
     }
 
     try {
-      const response = await chrome.runtime.sendMessage({
+      const response = await safeSendMessage({
         type: 'ADD_TOOLBAR_BOOKMARK',
         url,
       });
@@ -888,8 +981,7 @@
 
   document.addEventListener('click', (event) => {
     if (!root.contains(event.target)) {
-      closeOverflowMenu();
-      closeBookmarkMenu();
+      closeTransientMenus();
       root.classList.remove('is-drop-target');
       clearReorderMarkers();
     }
@@ -897,8 +989,7 @@
 
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {
-      closeOverflowMenu();
-      closeBookmarkMenu();
+      closeTransientMenus();
       root.classList.remove('is-drop-target');
       clearReorderMarkers();
     }
@@ -947,7 +1038,7 @@
       settings = normalizeSettings(changes[TOOLBAR_SETTINGS_KEY].newValue);
       applySettingsToLayout();
       ensureMountedAtPosition();
-      closeBookmarkMenu();
+      closeTransientMenus();
       layoutToolbar();
 
       if (isTopAutoHideEnabled()) {
@@ -970,9 +1061,11 @@
 
     try {
       await refreshBookmarks();
+      revealToolbarAfterInjection();
     } catch (error) {
       console.error(error);
       list.replaceChildren(renderEmptyState('Could not load toolbar bookmarks in page.'));
+      revealToolbarAfterInjection();
     }
   }
 

@@ -59,6 +59,68 @@ const DEFAULT_TOOLBAR_SETTINGS = {
 
 let currentToolbarSettings = { ...DEFAULT_TOOLBAR_SETTINGS };
 
+
+function isInjectableTabUrl(url) {
+  // Restrict injection to normal web pages; browser internal/gallery URLs reject scripting.
+  const text = String(url || '').trim();
+  if (!/^https?:\/\//i.test(text)) {
+    return false;
+  }
+
+  try {
+    const parsed = new URL(text);
+    const host = parsed.hostname.toLowerCase();
+
+    // Chrome extension gallery pages cannot be scripted even when they are https.
+    if (host === 'chromewebstore.google.com' || host === 'chrome.google.com') {
+      return false;
+    }
+
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function ensureToolbarInjectedOnActiveTab() {
+  if (!globalThis.chrome?.tabs?.query || !globalThis.chrome?.scripting) {
+    showStatus('Injection APIs are unavailable in this environment.');
+    return;
+  }
+
+  const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  const currentUrl = activeTab?.url || activeTab?.pendingUrl || '';
+
+  if (!activeTab?.id || !isInjectableTabUrl(currentUrl)) {
+    showStatus('This tab cannot be scripted. Open any normal website tab, then reopen this popup.');
+    return;
+  }
+
+  try {
+    // Inject CSS first so the toolbar can render without a flash of unstyled content.
+    await chrome.scripting.insertCSS({
+      target: { tabId: activeTab.id },
+      files: ['content-toolbar.css'],
+    });
+
+    // Execute toolbar logic on demand to avoid global <all_urls> host permissions.
+    await chrome.scripting.executeScript({
+      target: { tabId: activeTab.id },
+      files: ['content-toolbar.js'],
+    });
+
+    showStatus('Toolbar injected on this tab. Move to the top edge if auto-hide is enabled.');
+  } catch (error) {
+    console.error('Toolbar injection failed:', error);
+    const message = String(error?.message || error || '');
+    if (message.includes('cannot be scripted') || message.includes('Cannot access')) {
+      showStatus('This page blocks extensions. Switch to a normal website tab, then reopen popup.');
+      return;
+    }
+    showStatus('Could not inject toolbar on this tab. Try reloading the page, then open popup again.');
+  }
+}
+
 function showStatus(message) {
   statusEl.textContent = message;
 }
@@ -289,7 +351,7 @@ async function persistToolbarSettings() {
 
   currentToolbarSettings = settings;
   await chrome.storage.sync.set({ [TOOLBAR_SETTINGS_KEY]: settings });
-  showSettingsStatus('Saved. Settings apply immediately on open pages.');
+  showSettingsStatus('Saved. Reopen this popup to apply updates on the active tab.');
 }
 
 async function initSettings() {
@@ -303,7 +365,7 @@ async function initSettings() {
   currentToolbarSettings = settings;
   applySettingsToForm(settings);
   showSettingsStatus('Settings saved automatically.');
-  showStatus('Configure toolbar behavior and hover animation.');
+  showStatus('Configure toolbar behavior and load the toolbar on the active tab.');
 
   const onChange = () => {
     updateSpacerControlState();
@@ -352,7 +414,10 @@ async function init() {
     console.error(error);
     showStatus('Could not load toolbar settings.');
     showSettingsStatus('Could not load toolbar settings.');
+    return;
   }
+
+  await ensureToolbarInjectedOnActiveTab();
 }
 
 init();

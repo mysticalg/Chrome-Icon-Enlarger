@@ -1,3 +1,36 @@
+
+.bf-toolbar__reveal-handle {
+  position: fixed;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2147483647;
+  width: 56px;
+  height: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.55);
+  border-top: none;
+  border-radius: 0 0 10px 10px;
+  background: rgba(15, 23, 42, 0.92);
+  color: #e2e8f0;
+  font-size: 10px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0.95;
+}
+
+.bf-toolbar__reveal-handle:hover,
+.bf-toolbar__reveal-handle:focus-visible {
+  background: rgba(30, 41, 59, 0.98);
+  outline: none;
+}
+
+.bf-toolbar__reveal-handle[hidden] {
+  display: none !important;
+}
+
 .bf-toolbar {
   --bf-icon-size: 32px;
   --bf-slot-size: 42px;
@@ -52,6 +85,12 @@
 .bf-toolbar[data-position='top'][data-collapsed='true'] {
   transform: translateY(calc(-100% + 4px));
   opacity: 0.95;
+}
+
+/* Ensure auto-hidden launcher does not leave popover remnants visible. */
+.bf-toolbar[data-collapsed='true'] .bf-toolbar__overflow-menu,
+.bf-toolbar[data-collapsed='true'] .bf-toolbar__bookmark-menu {
+  display: none !important;
 }
 
 .bf-toolbar[data-position='bottom'] {
@@ -212,6 +251,12 @@
   background: rgba(15, 23, 42, 0.985);
   box-shadow: 0 10px 24px rgba(2, 6, 23, 0.55);
   overflow: hidden;
+}
+
+/* Defend against host-page CSS that may override default [hidden] rendering. */
+.bf-toolbar__overflow-menu[hidden],
+.bf-toolbar__bookmark-menu[hidden] {
+  display: none !important;
 }
 
 /* Icon-only overflow panel remains compact and removes internal scrollbars. */
