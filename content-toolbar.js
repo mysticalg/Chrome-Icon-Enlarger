@@ -13,7 +13,6 @@
 
   const ROOT_ID = 'big-favorites-inline-toolbar';
   const TOOLBAR_SETTINGS_KEY = 'toolbarSettings';
-  const MAX_ITEMS = 40;
   const BASE_ICON = 16;
   const SLOT_GAP = 6;
   const DEFAULT_SETTINGS = {
@@ -367,7 +366,9 @@
       }
 
       const bookmarks = response.bookmarks || [];
-      allBookmarks = bookmarks.slice(0, MAX_ITEMS);
+      // Show the full bookmarks toolbar list; responsive layout still decides
+      // what fits inline and puts remaining items behind the overflow button.
+      allBookmarks = bookmarks;
       layoutToolbar();
     } catch (error) {
       console.error(error);
