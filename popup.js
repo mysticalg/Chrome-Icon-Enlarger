@@ -3,6 +3,7 @@ const listEl = document.getElementById('bookmarkList');
 const scaleSelectEl = document.getElementById('scaleSelect');
 const iconOnlyToggleEl = document.getElementById('iconOnlyToggle');
 const positionSelectEl = document.getElementById('positionSelect');
+const openModeSelectEl = document.getElementById('openModeSelect');
 const settingsStatusEl = document.getElementById('settingsStatus');
 
 const TOOLBAR_SETTINGS_KEY = 'toolbarSettings';
@@ -10,7 +11,10 @@ const DEFAULT_TOOLBAR_SETTINGS = {
   scale: '2',
   iconOnly: true,
   position: 'top',
+  openMode: 'current',
 };
+
+let currentToolbarSettings = { ...DEFAULT_TOOLBAR_SETTINGS };
 
 function faviconUrl(pageUrl, size = 32) {
   const favicon = new URL(chrome.runtime.getURL('/_favicon/'));
@@ -30,6 +34,17 @@ function fallbackIconDataUrl() {
   return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
 }
 
+function applyOpenModeToLink(link) {
+  if (currentToolbarSettings.openMode === 'new') {
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    return;
+  }
+
+  link.removeAttribute('target');
+  link.removeAttribute('rel');
+}
+
 function renderBookmark(bookmark) {
   const li = document.createElement('li');
   li.className = 'bookmark-item';
@@ -37,8 +52,7 @@ function renderBookmark(bookmark) {
   const a = document.createElement('a');
   a.className = 'bookmark-link';
   a.href = bookmark.url;
-  a.target = '_blank';
-  a.rel = 'noopener noreferrer';
+  applyOpenModeToLink(a);
   a.title = `${bookmark.title || bookmark.url}\n${bookmark.url}`;
 
   const img = document.createElement('img');
@@ -77,14 +91,21 @@ function applySettingsToForm(settings) {
   scaleSelectEl.value = String(settings.scale);
   iconOnlyToggleEl.checked = Boolean(settings.iconOnly);
   positionSelectEl.value = settings.position;
+  openModeSelectEl.value = settings.openMode || 'current';
 }
 
 async function readToolbarSettings() {
   const storage = await chrome.storage.sync.get(TOOLBAR_SETTINGS_KEY);
-  return {
+  const merged = {
     ...DEFAULT_TOOLBAR_SETTINGS,
     ...(storage?.[TOOLBAR_SETTINGS_KEY] || {}),
   };
+
+  if (!['current', 'new'].includes(merged.openMode)) {
+    merged.openMode = DEFAULT_TOOLBAR_SETTINGS.openMode;
+  }
+
+  return merged;
 }
 
 async function persistToolbarSettings() {
@@ -92,8 +113,10 @@ async function persistToolbarSettings() {
     scale: scaleSelectEl.value,
     iconOnly: iconOnlyToggleEl.checked,
     position: positionSelectEl.value,
+    openMode: openModeSelectEl.value,
   };
 
+  currentToolbarSettings = settings;
   await chrome.storage.sync.set({ [TOOLBAR_SETTINGS_KEY]: settings });
   showSettingsStatus('Saved. Open/reload a page to apply launcher changes.');
 }
@@ -105,6 +128,7 @@ async function initSettings() {
   }
 
   const settings = await readToolbarSettings();
+  currentToolbarSettings = settings;
   applySettingsToForm(settings);
   showSettingsStatus('Settings saved automatically.');
 
@@ -118,6 +142,7 @@ async function initSettings() {
   scaleSelectEl.addEventListener('change', onChange);
   iconOnlyToggleEl.addEventListener('change', onChange);
   positionSelectEl.addEventListener('change', onChange);
+  openModeSelectEl.addEventListener('change', onChange);
 }
 
 async function init() {

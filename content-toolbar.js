@@ -19,6 +19,7 @@
     scale: '2',
     iconOnly: true,
     position: 'top',
+    openMode: 'current',
   };
 
   if (document.getElementById(ROOT_ID)) {
@@ -190,6 +191,21 @@
     return favicon.toString();
   }
 
+  /**
+   * Apply user-configured open behavior to launcher links.
+   * Default is current tab to match requested UX.
+   */
+  function applyOpenMode(link) {
+    if (settings.openMode === 'new') {
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      return;
+    }
+
+    link.removeAttribute('target');
+    link.removeAttribute('rel');
+  }
+
   function applyFaviconWithFallback(img, pageUrl) {
     const candidates = [
       faviconUrl(pageUrl, 64),
@@ -212,8 +228,7 @@
     const link = document.createElement('a');
     link.className = 'bf-toolbar__item bf-toolbar__bookmark';
     link.href = bookmark.url;
-    link.target = '_blank';
-    link.rel = 'noopener noreferrer';
+    applyOpenMode(link);
 
     const label = bookmark.title || new URL(bookmark.url).hostname;
     link.title = `${label}\n${bookmark.url}`;
@@ -249,8 +264,7 @@
     const item = document.createElement('a');
     item.className = 'bf-toolbar__overflow-item';
     item.href = bookmark.url;
-    item.target = '_blank';
-    item.rel = 'noopener noreferrer';
+    applyOpenMode(item);
 
     const label = bookmark.title || new URL(bookmark.url).hostname;
     item.title = `${label}\n${bookmark.url}`;
@@ -291,6 +305,9 @@
     normalized.iconOnly = Boolean(normalized.iconOnly);
     if (!['top', 'bottom', 'left', 'right'].includes(normalized.position)) {
       normalized.position = DEFAULT_SETTINGS.position;
+    }
+    if (!['current', 'new'].includes(normalized.openMode)) {
+      normalized.openMode = DEFAULT_SETTINGS.openMode;
     }
     return normalized;
   }
