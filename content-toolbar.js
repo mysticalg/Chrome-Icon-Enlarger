@@ -47,18 +47,79 @@
   overflowMenu.setAttribute('role', 'menu');
   overflowMenu.setAttribute('aria-label', 'Hidden bookmarks');
 
+  const bookmarkMenu = document.createElement('div');
+  bookmarkMenu.className = 'bf-toolbar__bookmark-menu';
+  bookmarkMenu.hidden = true;
+  bookmarkMenu.setAttribute('role', 'menu');
+  bookmarkMenu.setAttribute('aria-label', 'Bookmark actions');
+
+  const removeActionBtn = document.createElement('button');
+  removeActionBtn.className = 'bf-toolbar__menu-action';
+  removeActionBtn.type = 'button';
+  removeActionBtn.textContent = '🗑 Remove bookmark';
+  removeActionBtn.title = 'Remove this bookmark from the bookmarks toolbar';
+  removeActionBtn.setAttribute('aria-label', 'Remove bookmark');
+
+  bookmarkMenu.append(removeActionBtn);
+
   // Intentionally render icon rail only (no title row) for a compact launcher.
-  root.append(list, overflowMenu);
+  root.append(list, overflowMenu, bookmarkMenu);
 
   let allBookmarks = [];
   let lastHiddenBookmarks = [];
   let settings = { ...DEFAULT_SETTINGS };
+  let selectedBookmarkId = null;
 
   function closeOverflowMenu() {
     overflowMenu.hidden = true;
     overflowBtn.setAttribute('aria-expanded', 'false');
   }
 
+  function closeBookmarkMenu() {
+    bookmarkMenu.hidden = true;
+    selectedBookmarkId = null;
+  }
+
+  async function requestBookmarks() {
+    const response = await chrome.runtime.sendMessage({ type: 'GET_TOOLBAR_BOOKMARKS' });
+    if (!response?.ok) {
+      throw new Error(response?.error || 'Unknown bookmark loading error');
+    }
+    return response.bookmarks || [];
+  }
+
+  async function refreshBookmarks() {
+    const bookmarks = await requestBookmarks();
+    // Show the full bookmarks toolbar list; responsive layout still decides
+    // what fits inline and puts remaining items behind the overflow button.
+    allBookmarks = bookmarks;
+    layoutToolbar();
+  }
+
+  function parseDroppedUrl(event) {
+    const uriList = event.dataTransfer?.getData('text/uri-list') || '';
+    const firstUri = uriList
+      .split('\n')
+      .map((line) => line.trim())
+      .find((line) => line && !line.startsWith('#'));
+
+    const plain = event.dataTransfer?.getData('text/plain')?.trim() || '';
+    const candidate = firstUri || plain;
+
+    if (!candidate) {
+      return null;
+    }
+
+    try {
+      const url = new URL(candidate);
+      if (!['http:', 'https:'].includes(url.protocol)) {
+        return null;
+      }
+      return url.toString();
+    } catch {
+      return null;
+    }
+  }
 
   function faviconUrl(pageUrl, size = 32) {
     const favicon = new URL(chrome.runtime.getURL('/_favicon/'));
@@ -113,6 +174,7 @@
     const label = bookmark.title || new URL(bookmark.url).hostname;
     link.title = `${label}\n${bookmark.url}`;
     link.setAttribute('aria-label', label);
+    link.dataset.bookmarkId = bookmark.id;
 
     const img = document.createElement('img');
     img.className = 'bf-toolbar__icon';
@@ -147,6 +209,7 @@
 
     const label = bookmark.title || new URL(bookmark.url).hostname;
     item.title = `${label}\n${bookmark.url}`;
+    item.dataset.bookmarkId = bookmark.id;
 
     const img = document.createElement('img');
     img.className = 'bf-toolbar__overflow-icon';
@@ -294,19 +357,111 @@
     }
   });
 
+  /**
+   * Right-click bookmark tile => lightweight action menu with Remove action.
+   */
+  root.addEventListener('contextmenu', (event) => {
+    const item = event.target.closest('.bf-toolbar__bookmark, .bf-toolbar__overflow-item');
+    if (!item) {
+      return;
+    }
+
+    event.preventDefault();
+    selectedBookmarkId = item.dataset.bookmarkId || null;
+    if (!selectedBookmarkId) {
+      return;
+    }
+
+    bookmarkMenu.style.left = `${event.clientX}px`;
+    bookmarkMenu.style.top = `${event.clientY}px`;
+    bookmarkMenu.hidden = false;
+  });
+
+  removeActionBtn.addEventListener('click', async () => {
+    if (!selectedBookmarkId) {
+      closeBookmarkMenu();
+      return;
+    }
+
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: 'REMOVE_TOOLBAR_BOOKMARK',
+        bookmarkId: selectedBookmarkId,
+      });
+
+      if (!response?.ok) {
+        throw new Error(response?.error || 'Could not remove bookmark');
+      }
+
+      closeBookmarkMenu();
+      await refreshBookmarks();
+    } catch (error) {
+      console.error(error);
+      closeBookmarkMenu();
+    }
+  });
+
+  // Drag/drop URL support: drop a page URL onto the launcher to bookmark it.
+  root.addEventListener('dragover', (event) => {
+    const url = parseDroppedUrl(event);
+    if (!url) {
+      return;
+    }
+
+    event.preventDefault();
+    root.classList.add('is-drop-target');
+    event.dataTransfer.dropEffect = 'copy';
+  });
+
+  root.addEventListener('dragleave', (event) => {
+    if (!root.contains(event.relatedTarget)) {
+      root.classList.remove('is-drop-target');
+    }
+  });
+
+  root.addEventListener('drop', async (event) => {
+    event.preventDefault();
+    root.classList.remove('is-drop-target');
+
+    const url = parseDroppedUrl(event);
+    if (!url) {
+      return;
+    }
+
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: 'ADD_TOOLBAR_BOOKMARK',
+        url,
+      });
+
+      if (!response?.ok) {
+        throw new Error(response?.error || 'Could not add bookmark');
+      }
+
+      await refreshBookmarks();
+    } catch (error) {
+      console.error(error);
+    }
+  });
+
   document.addEventListener('click', (event) => {
     if (!root.contains(event.target)) {
       closeOverflowMenu();
+      closeBookmarkMenu();
+      root.classList.remove('is-drop-target');
     }
   });
 
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {
       closeOverflowMenu();
+      closeBookmarkMenu();
+      root.classList.remove('is-drop-target');
     }
   });
 
   window.addEventListener('resize', () => {
+    closeBookmarkMenu();
     layoutToolbar();
   });
 
@@ -319,6 +474,7 @@
       settings = normalizeSettings(changes[TOOLBAR_SETTINGS_KEY].newValue);
       applySettingsToLayout();
       ensureMountedAtPosition();
+      closeBookmarkMenu();
       layoutToolbar();
     });
   }
@@ -334,16 +490,7 @@
     }
 
     try {
-      const response = await chrome.runtime.sendMessage({ type: 'GET_TOOLBAR_BOOKMARKS' });
-      if (!response?.ok) {
-        throw new Error(response?.error || 'Unknown bookmark loading error');
-      }
-
-      const bookmarks = response.bookmarks || [];
-      // Show the full bookmarks toolbar list; responsive layout still decides
-      // what fits inline and puts remaining items behind the overflow button.
-      allBookmarks = bookmarks;
-      layoutToolbar();
+      await refreshBookmarks();
     } catch (error) {
       console.error(error);
       list.replaceChildren(renderEmptyState('Could not load toolbar bookmarks in page.'));
