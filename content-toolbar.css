@@ -57,6 +57,7 @@
   align-items: center;
   justify-content: center;
   flex: 0 0 var(--bf-slot-size);
+  flex: 0 0 var(--bf-slot-size);
   width: var(--bf-slot-size);
   min-width: var(--bf-slot-size);
   max-width: var(--bf-slot-size);
@@ -128,39 +129,46 @@
 }
 
 .bf-toolbar__overflow-menu {
-  position: fixed;
-  top: 0;
+  position: absolute;
+  top: calc(100% + 4px);
   right: 8px;
   z-index: 2147483647;
   min-width: max-content;
-  width: min(420px, 70vw);
-  height: 100vh;
-  max-height: 100vh;
-  overflow: auto;
+  max-width: min(420px, calc(100vw - 16px));
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 6px;
   padding: 8px 6px;
-  border-radius: 0;
+  border-radius: 10px;
   border: 1px solid rgba(148, 163, 184, 0.45);
   background: rgba(15, 23, 42, 0.985);
   box-shadow: 0 10px 24px rgba(2, 6, 23, 0.55);
+  overflow: hidden;
 }
 
-
+/* Icon-only overflow panel remains compact and removes internal scrollbars. */
 .bf-toolbar[data-icon-only='true'] .bf-toolbar__overflow-menu {
-  width: calc(var(--bf-slot-size) + 12px);
+  width: auto;
   min-width: calc(var(--bf-slot-size) + 12px);
+  max-width: min(420px, calc(100vw - 16px));
 }
 
+/* Keep menu attached to launcher edge while preventing top-row overlap. */
 .bf-toolbar[data-position='left'] .bf-toolbar__overflow-menu {
-  left: calc(var(--bf-slot-size) + 14px);
+  left: calc(100% + 6px);
   right: auto;
+  top: 0;
 }
 
 .bf-toolbar[data-position='right'] .bf-toolbar__overflow-menu {
-  right: calc(var(--bf-slot-size) + 14px);
+  right: calc(100% + 6px);
+  top: 0;
 }
 
 .bf-toolbar[data-position='bottom'] .bf-toolbar__overflow-menu {
-  right: 8px;
+  top: auto;
+  bottom: calc(100% + 4px);
 }
 
 .bf-toolbar__overflow-item {
@@ -177,6 +185,7 @@
 /* When icon-only is enabled, overflow items match main-row tile dimensions exactly. */
 .bf-toolbar[data-icon-only='true'] .bf-toolbar__overflow-item {
   justify-content: center;
+  flex: 0 0 var(--bf-slot-size);
   width: var(--bf-slot-size);
   min-width: var(--bf-slot-size);
   max-width: var(--bf-slot-size);
