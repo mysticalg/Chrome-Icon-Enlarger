@@ -25,13 +25,14 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  overflow-x: auto;
+  overflow: hidden;
   padding: 1px 0 2px;
   flex-wrap: nowrap;
 }
 
 .bf-toolbar__item,
-.bf-toolbar__toggle {
+.bf-toolbar__toggle,
+.bf-toolbar__overflow-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -55,18 +56,22 @@
 }
 
 .bf-toolbar__item:hover,
-.bf-toolbar__toggle:hover {
+.bf-toolbar__toggle:hover,
+.bf-toolbar__overflow-btn:hover {
   background: rgba(51, 65, 85, 0.55);
 }
 
 /* Keep keyboard usability clear even with borderless controls. */
 .bf-toolbar__item:focus-visible,
-.bf-toolbar__toggle:focus-visible {
+.bf-toolbar__toggle:focus-visible,
+.bf-toolbar__overflow-btn:focus-visible,
+.bf-toolbar__overflow-item:focus-visible {
   outline: 2px solid rgba(147, 197, 253, 0.95);
   outline-offset: 1px;
 }
 
-.bf-toolbar__toggle {
+.bf-toolbar__toggle,
+.bf-toolbar__overflow-btn {
   cursor: pointer;
   appearance: none;
   -webkit-appearance: none;
@@ -88,8 +93,48 @@
   white-space: nowrap;
 }
 
-/* When collapsed, keep only the inline Show button visible. */
-.bf-toolbar.is-collapsed .bf-toolbar__bookmark,
-.bf-toolbar.is-collapsed .bf-toolbar__empty {
-  display: none;
+.bf-toolbar__overflow-menu {
+  position: absolute;
+  right: 10px;
+  top: calc(100% - 4px);
+  z-index: 20;
+  min-width: 210px;
+  max-width: min(360px, calc(100vw - 20px));
+  max-height: 280px;
+  overflow: auto;
+  padding: 6px;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  background: rgba(15, 23, 42, 0.98);
+  box-shadow: 0 10px 24px rgba(2, 6, 23, 0.55);
+}
+
+.bf-toolbar__overflow-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: inherit;
+  text-decoration: none;
+  font-size: 12px;
+  border-radius: 8px;
+  padding: 7px 8px;
+}
+
+.bf-toolbar__overflow-item:hover {
+  background: rgba(51, 65, 85, 0.65);
+}
+
+.bf-toolbar__overflow-icon {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  flex: 0 0 18px;
+  object-fit: contain;
+  background: rgba(100, 116, 139, 0.2);
+}
+
+.bf-toolbar__overflow-text {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }

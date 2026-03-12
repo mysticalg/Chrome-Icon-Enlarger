@@ -15,6 +15,10 @@
     return;
   }
 
+  const MAX_ITEMS = 40;
+  const SLOT_WIDTH = 34;
+  const SLOT_GAP = 6;
+
   const root = document.createElement('aside');
   root.id = ROOT_ID;
   root.className = 'bf-toolbar';
@@ -32,6 +36,13 @@
   list.className = 'bf-toolbar__list';
   list.setAttribute('aria-label', 'Bookmark shortcuts');
 
+  const overflowBtn = document.createElement('button');
+  overflowBtn.className = 'bf-toolbar__overflow-btn';
+  overflowBtn.type = 'button';
+  overflowBtn.textContent = '»';
+  overflowBtn.title = 'Show hidden bookmarks';
+  overflowBtn.setAttribute('aria-label', 'Show hidden bookmarks in dropdown');
+
   const collapseBtn = document.createElement('button');
   collapseBtn.className = 'bf-toolbar__toggle';
   collapseBtn.type = 'button';
@@ -39,8 +50,17 @@
   collapseBtn.title = 'Hide bookmark icons';
   collapseBtn.setAttribute('aria-label', 'Hide bookmark icons');
 
+  const overflowMenu = document.createElement('div');
+  overflowMenu.className = 'bf-toolbar__overflow-menu';
+  overflowMenu.hidden = true;
+  overflowMenu.setAttribute('role', 'menu');
+  overflowMenu.setAttribute('aria-label', 'Hidden bookmarks');
+
   header.append(title);
-  root.append(header, list);
+  root.append(header, list, overflowMenu);
+
+  let allBookmarks = [];
+  let lastHiddenBookmarks = [];
 
   /**
    * Insert the toolbar into normal page flow so it pushes content down
@@ -62,19 +82,52 @@
     mountToolbar();
   }
 
-  /**
-   * Keep the control button in the same icon row while still allowing
-   * users to un-collapse the toolbar after hiding icons.
-   */
+  function closeOverflowMenu() {
+    overflowMenu.hidden = true;
+    overflowBtn.setAttribute('aria-expanded', 'false');
+  }
+
   function refreshToggleButton(collapsed) {
     collapseBtn.textContent = collapsed ? '↺' : '👁';
     collapseBtn.title = collapsed ? 'Show bookmark icons' : 'Hide bookmark icons';
     collapseBtn.setAttribute('aria-label', collapseBtn.title);
+
+    if (collapsed) {
+      closeOverflowMenu();
+    }
   }
 
   collapseBtn.addEventListener('click', () => {
     const collapsed = root.classList.toggle('is-collapsed');
     refreshToggleButton(collapsed);
+    layoutToolbar();
+  });
+
+  overflowBtn.addEventListener('click', () => {
+    if (overflowMenu.hidden) {
+      populateOverflowMenu(lastHiddenBookmarks);
+      overflowMenu.hidden = false;
+      overflowBtn.setAttribute('aria-expanded', 'true');
+    } else {
+      closeOverflowMenu();
+    }
+  });
+
+  document.addEventListener('click', (event) => {
+    if (!root.contains(event.target)) {
+      closeOverflowMenu();
+    }
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      closeOverflowMenu();
+    }
+  });
+
+  window.addEventListener('resize', () => {
+    closeOverflowMenu();
+    layoutToolbar();
   });
 
   function faviconUrl(pageUrl, size = 32) {
@@ -142,7 +195,7 @@
     img.decoding = 'async';
     applyFaviconWithFallback(img, bookmark.url);
 
-    // Keep launcher compact: icon-only tiles with full tooltip/ARIA label for clarity.
+    // Icon-only row for density, with tooltip/ARIA carrying bookmark details.
     link.append(img);
     return link;
   }
@@ -155,6 +208,86 @@
     return empty;
   }
 
+  function renderOverflowItem(bookmark) {
+    const item = document.createElement('a');
+    item.className = 'bf-toolbar__overflow-item';
+    item.href = bookmark.url;
+    item.target = '_blank';
+    item.rel = 'noopener noreferrer';
+
+    const label = bookmark.title || new URL(bookmark.url).hostname;
+    item.title = `${label}\n${bookmark.url}`;
+
+    const img = document.createElement('img');
+    img.className = 'bf-toolbar__overflow-icon';
+    img.alt = '';
+    img.loading = 'lazy';
+    img.decoding = 'async';
+    applyFaviconWithFallback(img, bookmark.url);
+
+    const text = document.createElement('span');
+    text.className = 'bf-toolbar__overflow-text';
+    text.textContent = label;
+
+    item.append(img, text);
+    return item;
+  }
+
+  function populateOverflowMenu(hiddenBookmarks) {
+    overflowMenu.replaceChildren(...hiddenBookmarks.map(renderOverflowItem));
+  }
+
+  /**
+   * Compute how many fixed-width icon slots fit in the current toolbar width.
+   */
+  function maxSlotsForWidth(width) {
+    return Math.max(0, Math.floor((width + SLOT_GAP) / (SLOT_WIDTH + SLOT_GAP)));
+  }
+
+  /**
+   * Layout strategy:
+   * - Never show scrollbar in the icon row.
+   * - Render what fits as fixed-width icons.
+   * - Put overflowed bookmarks behind the trailing » dropdown button.
+   */
+  function layoutToolbar() {
+    closeOverflowMenu();
+
+    if (allBookmarks.length === 0) {
+      list.replaceChildren(renderEmptyState('No toolbar bookmarks found.'), collapseBtn);
+      return;
+    }
+
+    if (root.classList.contains('is-collapsed')) {
+      list.replaceChildren(collapseBtn);
+      return;
+    }
+
+    const availableWidth = list.clientWidth;
+    const totalSlots = maxSlotsForWidth(availableWidth);
+
+    // First reserve one slot for hide/show.
+    let visibleCount = Math.min(allBookmarks.length, Math.max(0, totalSlots - 1));
+
+    // If not all bookmarks fit, reserve one additional slot for the » overflow control.
+    const needsOverflow = visibleCount < allBookmarks.length;
+    if (needsOverflow) {
+      visibleCount = Math.min(allBookmarks.length, Math.max(0, totalSlots - 2));
+    }
+
+    const visible = allBookmarks.slice(0, visibleCount);
+    const hidden = allBookmarks.slice(visibleCount);
+    lastHiddenBookmarks = hidden;
+
+    const children = [...visible.map(renderBookmark)];
+    if (hidden.length > 0) {
+      children.push(overflowBtn);
+    }
+    children.push(collapseBtn);
+
+    list.replaceChildren(...children);
+  }
+
   async function init() {
     try {
       const response = await chrome.runtime.sendMessage({ type: 'GET_TOOLBAR_BOOKMARKS' });
@@ -164,17 +297,8 @@
       }
 
       const bookmarks = response.bookmarks || [];
-
-      if (bookmarks.length === 0) {
-        list.replaceChildren(renderEmptyState('No toolbar bookmarks found.'), collapseBtn);
-        return;
-      }
-
-      const maxItems = 40;
-      const visible = bookmarks.slice(0, maxItems);
-
-      // Keep one-row layout compact: icons + title + inline show/hide control.
-      list.replaceChildren(...visible.map(renderBookmark), collapseBtn);
+      allBookmarks = bookmarks.slice(0, MAX_ITEMS);
+      layoutToolbar();
     } catch (error) {
       console.error(error);
       list.replaceChildren(renderEmptyState('Could not load toolbar bookmarks in page.'), collapseBtn);
