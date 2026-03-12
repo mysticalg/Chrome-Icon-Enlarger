@@ -177,6 +177,39 @@
     selectedBookmarkId = null;
   }
 
+  /**
+   * Position context menu near pointer while keeping it inside the viewport.
+   *
+   * Note: the toolbar can be translated (top auto-hide animation), so we place
+   * this menu using coordinates relative to the toolbar's live bounding box
+   * instead of relying on viewport-fixed positioning.
+   */
+  function openBookmarkMenuAt(pointerClientX, pointerClientY) {
+    const viewportPadding = 8;
+    const rootRect = root.getBoundingClientRect();
+
+    // Make menu measurable before clamping.
+    bookmarkMenu.hidden = false;
+    bookmarkMenu.style.left = '0px';
+    bookmarkMenu.style.top = '0px';
+
+    const menuWidth = bookmarkMenu.offsetWidth;
+    const menuHeight = bookmarkMenu.offsetHeight;
+
+    const clampedClientX = Math.min(
+      window.innerWidth - menuWidth - viewportPadding,
+      Math.max(viewportPadding, pointerClientX),
+    );
+    const clampedClientY = Math.min(
+      window.innerHeight - menuHeight - viewportPadding,
+      Math.max(viewportPadding, pointerClientY),
+    );
+
+    // Convert viewport coords to toolbar-local coords for absolute positioning.
+    bookmarkMenu.style.left = `${clampedClientX - rootRect.left}px`;
+    bookmarkMenu.style.top = `${clampedClientY - rootRect.top}px`;
+  }
+
   function clearTopHideTimer() {
     if (topHideTimer) {
       clearTimeout(topHideTimer);
@@ -813,9 +846,7 @@
       return;
     }
 
-    bookmarkMenu.style.left = `${event.clientX}px`;
-    bookmarkMenu.style.top = `${event.clientY}px`;
-    bookmarkMenu.hidden = false;
+    openBookmarkMenuAt(event.clientX, event.clientY);
   });
 
   removeActionBtn.addEventListener('click', async () => {
@@ -945,7 +976,7 @@
   });
 
   document.addEventListener('click', (event) => {
-    if (!root.contains(event.target)) {
+    if (!root.contains(event.target) && !bookmarkMenu.contains(event.target)) {
       closeOverflowMenu();
       closeBookmarkMenu();
       root.classList.remove('is-drop-target');

@@ -295,7 +295,7 @@
 
 /* Small custom context menu for right-click remove action. */
 .bf-toolbar__bookmark-menu {
-  position: fixed;
+  position: absolute;
   z-index: 2147483647;
   background: var(--bf-shell-bg);
   border: 1px solid var(--bf-shell-border);
