@@ -2,6 +2,7 @@ const statusEl = document.getElementById('status');
 const gridEl = document.getElementById('bookmarksGrid');
 const refreshButtonEl = document.getElementById('refreshButton');
 const openModeSelectEl = document.getElementById('openModeSelect');
+const enableToolbarButtonEl = document.getElementById('enableToolbarButton');
 
 const SETTINGS_KEY = 'popupLauncherSettings';
 const DEFAULT_SETTINGS = {
@@ -38,6 +39,34 @@ async function saveSettings() {
     openMode: normalizeOpenMode(openModeSelectEl.value),
   };
   await chrome.storage.sync.set({ [SETTINGS_KEY]: settings });
+}
+
+/**
+ * Inject the existing in-page toolbar files into the currently active tab.
+ * This is on-demand and uses activeTab permission instead of <all_urls>.
+ */
+async function enableInPageToolbarForActiveTab() {
+  const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!activeTab?.id) {
+    throw new Error('No active tab available.');
+  }
+
+  const url = String(activeTab.url || '');
+  if (!/^https?:/i.test(url)) {
+    throw new Error('Open a normal website tab (http/https) first.');
+  }
+
+  // Inject CSS first so layout styles are ready before script bootstraps.
+  await chrome.scripting.insertCSS({
+    target: { tabId: activeTab.id },
+    files: ['content-toolbar.css'],
+  });
+
+  // Inject script that mounts the toolbar and wires bookmark interactions.
+  await chrome.scripting.executeScript({
+    target: { tabId: activeTab.id },
+    files: ['content-toolbar.js'],
+  });
 }
 
 async function openBookmark(url) {
@@ -122,6 +151,16 @@ async function init() {
 
   refreshButtonEl.addEventListener('click', () => {
     loadBookmarks();
+  });
+
+  enableToolbarButtonEl.addEventListener('click', async () => {
+    try {
+      await enableInPageToolbarForActiveTab();
+      setStatus('In-page toolbar enabled on current tab.');
+    } catch (error) {
+      console.error(error);
+      setStatus(error?.message || 'Could not enable in-page toolbar.');
+    }
   });
 
   await loadBookmarks();

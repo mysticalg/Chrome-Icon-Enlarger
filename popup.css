@@ -11,7 +11,7 @@ body {
 
 .app {
   width: 420px;
-  min-height: 320px;
+  min-height: 360px;
   padding: 14px;
   box-sizing: border-box;
 }
@@ -47,7 +47,8 @@ body {
 }
 
 .field__control,
-.refresh {
+.refresh,
+.action-btn {
   border: 1px solid #334155;
   background: #0f172a;
   color: #e2e8f0;
@@ -55,9 +56,26 @@ body {
   padding: 8px 10px;
 }
 
-.refresh {
+.refresh,
+.action-btn {
   cursor: pointer;
   font-weight: 600;
+}
+
+.actions {
+  margin-bottom: 10px;
+}
+
+.action-btn {
+  width: 100%;
+  text-align: center;
+  border-color: #3b82f6;
+}
+
+.action-btn:hover,
+.action-btn:focus-visible {
+  background: #13203a;
+  outline: none;
 }
 
 .status {

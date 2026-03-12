@@ -10,8 +10,8 @@
     <main class="app" aria-live="polite">
       <header class="app__header">
         <h1><span aria-hidden="true">⭐</span> Big Favorites</h1>
-        <p class="subtitle" title="This version stays in the popup so it can be published without host permissions.">
-          Popup-only launcher (no host permissions)
+        <p class="subtitle" title="No broad host permissions are requested. Use the button below to enable toolbar on the current tab.">
+          Popup launcher + on-demand in-page toolbar
         </p>
       </header>
 
@@ -24,8 +24,17 @@
           </select>
         </label>
 
-        <button id="refreshButton" class="refresh" type="button" title="Reload bookmarks now">
-          🔄 Refresh
+        <button id="refreshButton" class="refresh" type="button" title="Reload bookmarks now">🔄 Refresh</button>
+      </section>
+
+      <section class="actions" aria-label="In-page toolbar actions">
+        <button
+          id="enableToolbarButton"
+          class="action-btn"
+          type="button"
+          title="Inject the Big Favorites toolbar into the active tab using activeTab permission"
+        >
+          🧩 Enable in-page toolbar on this tab
         </button>
       </section>
 
