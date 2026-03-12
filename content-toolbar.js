@@ -35,7 +35,7 @@
   const collapseBtn = document.createElement('button');
   collapseBtn.className = 'bf-toolbar__toggle';
   collapseBtn.type = 'button';
-  collapseBtn.textContent = 'Hide';
+  collapseBtn.textContent = '👁';
   collapseBtn.title = 'Hide bookmark icons';
   collapseBtn.setAttribute('aria-label', 'Hide bookmark icons');
 
@@ -67,7 +67,7 @@
    * users to un-collapse the toolbar after hiding icons.
    */
   function refreshToggleButton(collapsed) {
-    collapseBtn.textContent = collapsed ? 'Show' : 'Hide';
+    collapseBtn.textContent = collapsed ? '↺' : '👁';
     collapseBtn.title = collapsed ? 'Show bookmark icons' : 'Hide bookmark icons';
     collapseBtn.setAttribute('aria-label', collapseBtn.title);
   }
@@ -133,6 +133,7 @@
 
     const label = bookmark.title || new URL(bookmark.url).hostname;
     link.title = `${label}\n${bookmark.url}`;
+    link.setAttribute('aria-label', label);
 
     const img = document.createElement('img');
     img.className = 'bf-toolbar__icon';
@@ -141,11 +142,8 @@
     img.decoding = 'async';
     applyFaviconWithFallback(img, bookmark.url);
 
-    const text = document.createElement('span');
-    text.className = 'bf-toolbar__text';
-    text.textContent = label;
-
-    link.append(img, text);
+    // Keep launcher compact: icon-only tiles with full tooltip/ARIA label for clarity.
+    link.append(img);
     return link;
   }
 
