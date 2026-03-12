@@ -2,6 +2,7 @@ const statusEl = document.getElementById('status');
 const scaleSelectEl = document.getElementById('scaleSelect');
 const iconOnlyToggleEl = document.getElementById('iconOnlyToggle');
 const autoHideTopToggleEl = document.getElementById('autoHideTopToggle');
+const keepSpacerOnAutoHideToggleEl = document.getElementById('keepSpacerOnAutoHideToggle');
 const hoverGrowIconsToggleEl = document.getElementById('hoverGrowIconsToggle');
 const hoverGrowScaleSelectEl = document.getElementById('hoverGrowScaleSelect');
 const hoverGrowSpeedSelectEl = document.getElementById('hoverGrowSpeedSelect');
@@ -16,6 +17,7 @@ const DEFAULT_TOOLBAR_SETTINGS = {
   position: 'top',
   openMode: 'current',
   autoHideTop: true,
+  keepSpacerOnAutoHide: false,
   hoverGrowIcons: false,
   hoverGrowScale: 1.2,
   hoverGrowSpeed: 240,
@@ -51,6 +53,7 @@ function applySettingsToForm(settings) {
   scaleSelectEl.value = String(settings.scale);
   iconOnlyToggleEl.checked = Boolean(settings.iconOnly);
   autoHideTopToggleEl.checked = Boolean(settings.autoHideTop);
+  keepSpacerOnAutoHideToggleEl.checked = Boolean(settings.keepSpacerOnAutoHide);
   hoverGrowIconsToggleEl.checked = Boolean(settings.hoverGrowIcons);
   hoverGrowScaleSelectEl.value = Number(settings.hoverGrowScale).toFixed(2);
   hoverGrowSpeedSelectEl.value = String(settings.hoverGrowSpeed);
@@ -70,6 +73,7 @@ async function readToolbarSettings() {
   }
 
   merged.autoHideTop = Boolean(merged.autoHideTop);
+  merged.keepSpacerOnAutoHide = Boolean(merged.keepSpacerOnAutoHide);
   merged.hoverGrowIcons = Boolean(merged.hoverGrowIcons);
   merged.hoverGrowScale = normalizeHoverGrowScale(merged.hoverGrowScale);
   merged.hoverGrowSpeed = normalizeHoverGrowSpeed(merged.hoverGrowSpeed);
@@ -82,6 +86,7 @@ async function persistToolbarSettings() {
     scale: scaleSelectEl.value,
     iconOnly: iconOnlyToggleEl.checked,
     autoHideTop: autoHideTopToggleEl.checked,
+    keepSpacerOnAutoHide: keepSpacerOnAutoHideToggleEl.checked,
     hoverGrowIcons: hoverGrowIconsToggleEl.checked,
     hoverGrowScale: normalizeHoverGrowScale(hoverGrowScaleSelectEl.value),
     hoverGrowSpeed: normalizeHoverGrowSpeed(hoverGrowSpeedSelectEl.value),
@@ -117,6 +122,7 @@ async function initSettings() {
   scaleSelectEl.addEventListener('change', onChange);
   iconOnlyToggleEl.addEventListener('change', onChange);
   autoHideTopToggleEl.addEventListener('change', onChange);
+  keepSpacerOnAutoHideToggleEl.addEventListener('change', onChange);
   hoverGrowIconsToggleEl.addEventListener('change', onChange);
   hoverGrowScaleSelectEl.addEventListener('change', onChange);
   hoverGrowSpeedSelectEl.addEventListener('change', onChange);

@@ -25,6 +25,7 @@
     hoverGrowIcons: false,
     hoverGrowScale: 1.2,
     hoverGrowSpeed: 240,
+    keepSpacerOnAutoHide: false,
   };
 
   if (document.getElementById(ROOT_ID)) {
@@ -128,7 +129,9 @@
       return;
     }
     root.dataset.collapsed = 'true';
-    topSpacer.dataset.collapsed = 'true';
+
+    // Optional mode: keep layout spacer visible while toolbar slides away.
+    topSpacer.dataset.collapsed = settings.keepSpacerOnAutoHide ? 'false' : 'true';
   }
 
   function scheduleToolbarHide(delayMs = 700) {
@@ -383,6 +386,7 @@
     }
     normalized.autoHideTop = Boolean(normalized.autoHideTop);
     normalized.hoverGrowIcons = Boolean(normalized.hoverGrowIcons);
+    normalized.keepSpacerOnAutoHide = Boolean(normalized.keepSpacerOnAutoHide);
 
     const hoverGrowScale = Number.parseFloat(normalized.hoverGrowScale);
     normalized.hoverGrowScale = Number.isFinite(hoverGrowScale)
@@ -426,7 +430,7 @@
 
     if (isTopAutoHideEnabled()) {
       root.dataset.collapsed = 'true';
-      topSpacer.dataset.collapsed = 'true';
+      topSpacer.dataset.collapsed = settings.keepSpacerOnAutoHide ? 'false' : 'true';
     } else {
       root.dataset.collapsed = 'false';
       topSpacer.dataset.collapsed = 'false';
@@ -514,14 +518,21 @@
       ? maxSlotsForHeight(list.clientHeight)
       : maxSlotsForWidth(list.clientWidth);
 
-    let visibleCount = Math.min(allBookmarks.length, Math.max(0, totalSlots));
-    if (visibleCount < allBookmarks.length) {
-      // Reserve one slot for the overflow menu trigger when needed.
-      visibleCount = Math.min(allBookmarks.length, Math.max(0, totalSlots - 1));
+    // Reserve fixed action space so right-edge buttons never get clipped.
+    const addActionSlots = 1;
+    const availableForBookmarks = Math.max(0, totalSlots - addActionSlots);
+
+    let visibleCount = Math.min(allBookmarks.length, availableForBookmarks);
+    let hiddenCount = allBookmarks.length - visibleCount;
+
+    // If we still need overflow, reserve one more slot for its trigger.
+    if (hiddenCount > 0) {
+      visibleCount = Math.max(0, availableForBookmarks - 1);
+      hiddenCount = allBookmarks.length - visibleCount;
     }
 
     const visible = allBookmarks.slice(0, visibleCount);
-    const hidden = allBookmarks.slice(visibleCount);
+    const hidden = allBookmarks.slice(visibleCount, visibleCount + hiddenCount);
     lastHiddenBookmarks = hidden;
 
     const children = [...visible.map(renderBookmark)];
