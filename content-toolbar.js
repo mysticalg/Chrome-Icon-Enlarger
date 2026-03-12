@@ -470,10 +470,11 @@
 
     // Width slider applies to top/bottom bars only. Side rails keep natural width.
     if (settings.position === 'top' || settings.position === 'bottom') {
-      root.style.width = `${settings.barWidthPercent}%`;
-      root.style.maxWidth = '100vw';
-      root.style.left = '0';
-      root.style.right = 'auto';
+      // Use !important so host-page CSS cannot force the bar back to full width.
+      root.style.setProperty('width', `${settings.barWidthPercent}%`, 'important');
+      root.style.setProperty('max-width', '100vw', 'important');
+      root.style.setProperty('left', '0', 'important');
+      root.style.setProperty('right', 'auto', 'important');
     } else {
       root.style.removeProperty('width');
       root.style.removeProperty('max-width');
