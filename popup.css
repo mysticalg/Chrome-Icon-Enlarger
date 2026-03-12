@@ -29,6 +29,10 @@ body {
 }
 
 body {
+  /* Keep extension settings panel at a predictable readable width by default. */
+  width: 380px;
+  min-width: 320px;
+  max-width: 100vw;
   margin: 0;
   font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
   background: var(--bg);
@@ -41,7 +45,7 @@ body {
 .app {
   /* Fill popup or side-panel host and stay responsive on narrow panel widths. */
   width: 100%;
-  max-width: 520px;
+  max-width: 460px;
   min-height: 100vh;
   padding: 14px;
   display: flex;
@@ -109,6 +113,11 @@ body {
 
 /* In tight side panels, stack labels/controls to prevent squeezed clipping. */
 @media (max-width: 360px) {
+  body {
+    width: 100%;
+    min-width: 0;
+  }
+
   .app {
     padding: 10px;
   }
