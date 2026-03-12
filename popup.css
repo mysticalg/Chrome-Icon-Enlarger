@@ -33,16 +33,20 @@ body {
   font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
   background: var(--bg);
   color: var(--text);
-  overflow: hidden;
+  /* Allow vertical scrolling in narrow side panels instead of clipping content. */
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .app {
-  /* Fill popup or side-panel host so settings can run as a docked sidebar. */
-  width: min(430px, 100%);
+  /* Fill popup or side-panel host and stay responsive on narrow panel widths. */
+  width: 100%;
+  max-width: 520px;
   min-height: 100vh;
   padding: 14px;
   display: flex;
   flex-direction: column;
+  margin: 0 auto;
 }
 
 .app__header h1 {
@@ -79,6 +83,7 @@ body {
   justify-content: space-between;
   gap: 10px;
   margin-bottom: 8px;
+  min-width: 0;
 }
 
 .field--inline {
@@ -88,6 +93,8 @@ body {
 .field__label {
   font-size: 12px;
   color: var(--text);
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .field__control {
@@ -97,6 +104,30 @@ body {
   background: var(--bg);
   color: var(--text);
   padding: 5px 8px;
+  max-width: 100%;
+}
+
+/* In tight side panels, stack labels/controls to prevent squeezed clipping. */
+@media (max-width: 360px) {
+  .app {
+    padding: 10px;
+  }
+
+  .field {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+
+  .field--inline {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .field__control {
+    width: 100%;
+  }
 }
 
 .settings__status,
