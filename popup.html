@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Big Favorites</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main class="app" aria-live="polite">
+      <header class="app__header">
+        <h1>
+          <span aria-hidden="true">⭐</span>
+          Big Favorites
+        </h1>
+        <p class="subtitle" title="This popup mirrors bookmarks from the browser's bookmarks toolbar.">
+          2× icon shortcuts for your bookmarks bar
+        </p>
+      </header>
+
+      <section id="status" class="status" role="status" title="Helpful loading and error messages appear here.">
+        Loading bookmarks…
+      </section>
+
+      <ul id="bookmarkList" class="bookmark-grid" aria-label="Bookmarks toolbar items"></ul>
+
+      <footer class="app__footer">
+        <small title="Chrome does not let extensions directly resize the native toolbar UI.">
+          Tip: This extension provides a bigger, faster bookmark launcher.
+        </small>
+      </footer>
+    </main>
+
+    <script src="popup.js" type="module"></script>
+  </body>
+</html>
