@@ -219,6 +219,15 @@
   overflow: hidden;
 }
 
+/*
+ * Defensive hidden-state rule:
+ * some host pages override the native [hidden] selector globally,
+ * which can accidentally force this menu visible.
+ */
+.bf-toolbar__overflow-menu[hidden] {
+  display: none !important;
+}
+
 /* Icon-only overflow panel remains compact and removes internal scrollbars. */
 .bf-toolbar[data-icon-only='true'] .bf-toolbar__overflow-menu {
   width: auto;
@@ -302,6 +311,11 @@
   border-radius: 8px;
   padding: 4px;
   box-shadow: var(--bf-shell-shadow);
+}
+
+/* Same protection for the context menu hidden state. */
+.bf-toolbar__bookmark-menu[hidden] {
+  display: none !important;
 }
 
 .bf-toolbar__menu-action {
