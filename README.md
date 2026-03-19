@@ -4,6 +4,8 @@ This extension provides a **large-icon launcher** for the bookmarks toolbar (fav
 
 > Chrome extensions cannot directly resize Chrome's built-in toolbar UI, so this gives you a fast popup alternative with larger icons.
 
+Live page: [mysticalg.github.io/Chrome-Icon-Enlarger](https://mysticalg.github.io/Chrome-Icon-Enlarger/)
+
 ## Install (Developer Mode)
 
 1. Open `chrome://extensions`.
@@ -30,3 +32,8 @@ This extension provides a **large-icon launcher** for the bookmarks toolbar (fav
 
 This extension intentionally runs only in the action popup and does **not** inject scripts into websites.
 That keeps permissions scoped to the extension's single purpose: showing larger bookmark icons.
+
+## Support
+
+If you'd like to support this project, you can buy me a coffee:
+[buymeacoffee.com/dhooksterm](https://buymeacoffee.com/dhooksterm)
